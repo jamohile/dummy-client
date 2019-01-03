@@ -1,0 +1,47 @@
+This is the basic plan for the recall client api.
+
+It will be implemented in typescript.
+Due to limitations of typescript, some aspects such as abstract static methods will not be used, and will be worked around.
+
+
+DataTypes:
+    each datatype stored in Vectorly format.
+
+class Data:
+    int id
+    static Map<id, Data> REGISTRY
+    abstract static int timeOfLastLoad
+    object data:
+        This is a store used to maintain a Data object's information.
+        If referencing another Data object, it is stored by id.
+    object updated:
+        Analagous to data. Holds only updated props.
+    Map <key, (Data) => void> subscriptions
+
+
+    abstract static bool canCreate() // Some data, such as a shift, may have dependencies for defaults: e.g. template available. This checks that.
+    abstract static Data create() // Create a new data object with default params. Abstract because must respect type.
+
+    object update(data, commit) // Modify the data in this object through updated. (locally). If commit is true, will directly modify data, without updated.
+    object consolidate() // Merge the updated and old properties, get the "current state."
+    object commit() //Commits all updates to the data store, not reversible. This is local and assumed server actions already taken.
+
+    async object load() // Use the server to get new data for the item.
+    async object save() //commit changes to server
+    async object delete() //Delete from server.
+    async object flatten(bool pure) // Flatten id references to their Data objects. If "pure", strip all Data objects and return a simple nested object.
+
+    async static bool loadAll() //Using getURL, get all objects of this type.
+    async static bool refreshAll() //Using getURL/updated gets all objects of this type, that have changed since the last load. Note: time of last load is server provided, and stored locally.
+    static bool has(id) //Whether the registry has item of this ID.
+    static Data get(id) //Get the item of this ID from the registry. This does not trigger a load.
+    static async Data getOrLoad(id) // Gets or loads the object.
+
+    bool subscribe(key, (Data) => void) // Subscribe to changes in the object.
+    bool notify() // Notify all subscribed of change.
+    NOTE: If an object has been deleted on the server...how does this reach the client?
+        If deleted, the object may be marked as deleted rather than simply deleted from the DB.
+        then it would be handed in the update call.
+
+
+    abstract string getURL()
