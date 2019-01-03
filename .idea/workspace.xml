@@ -21,6 +21,7 @@
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
+          <entry key="gitignore" value="1" />
           <entry key="js" value="6" />
           <entry key="json" value="3" />
           <entry key="ts" value="5" />
@@ -31,13 +32,14 @@
         <counts>
           <entry key="JSON" value="1" />
           <entry key="JavaScript" value="6" />
-          <entry key="PLAIN_TEXT" value="1" />
+          <entry key="PLAIN_TEXT" value="2" />
           <entry key="TypeScript" value="5" />
           <entry key="tsconfig" value="2" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
+          <entry key="gitignore" value="25" />
           <entry key="js" value="11" />
           <entry key="json" value="39" />
           <entry key="ts" value="12719" />
@@ -48,7 +50,7 @@
         <counts>
           <entry key="JSON" value="5" />
           <entry key="JavaScript" value="11" />
-          <entry key="PLAIN_TEXT" value="2815" />
+          <entry key="PLAIN_TEXT" value="2840" />
           <entry key="TypeScript" value="12719" />
           <entry key="tsconfig" value="34" />
         </counts>
@@ -62,11 +64,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/../dummy-client/src/Data.ts">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="145">
-              <caret line="31" column="4" selection-start-line="31" selection-start-column="4" selection-end-line="31" selection-end-column="4" />
+            <state relative-caret-position="420">
+              <caret line="36" column="78" lean-forward="true" selection-start-line="36" selection-start-column="78" selection-end-line="36" selection-end-column="78" />
               <folding>
                 <element signature="n#status#0" />
                 <element signature="n#!!block;n#constructor#0;n#status#0" />
@@ -85,6 +87,15 @@
                 <element signature="n#!!block;n#consolidate#0;n#Data#0" />
                 <element signature="e#4843#4879#0" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/../dummy-client/.gitignore">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="458">
+              <caret line="79" column="7" selection-start-line="79" selection-start-column="7" selection-end-line="79" selection-end-column="7" />
             </state>
           </provider>
         </entry>
@@ -135,6 +146,7 @@
         <option value="$PROJECT_DIR$/src/Data.ts" />
         <option value="$PROJECT_DIR$/../dummy-client/package.json" />
         <option value="$PROJECT_DIR$/../dummy-client/src/Data.ts" />
+        <option value="$PROJECT_DIR$/../dummy-client/.gitignore" />
       </list>
     </option>
   </component>
@@ -173,12 +185,6 @@
               <item name="dummy-client" type="b2602c69:ProjectViewProjectNode" />
               <item name="dummy-client" type="462c0819:PsiDirectoryNode" />
               <item name="src" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="dummy-client" type="b2602c69:ProjectViewProjectNode" />
-              <item name="dummy-client" type="462c0819:PsiDirectoryNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="test.ts" type="620a8d5e:NestingTreeNode" />
             </path>
           </expand>
           <select />
@@ -222,12 +228,12 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1546488169456</updated>
-      <workItem from="1546488170653" duration="25714000" />
+      <workItem from="1546488170653" duration="26050000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="25714000" />
+    <option name="totallyTimeSpent" value="26050000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="1440" height="848" extended-state="0" />
@@ -239,11 +245,11 @@
       <window_info anchor="bottom" id="TypeScript" />
       <window_info anchor="bottom" id="Docker" show_stripe_button="false" />
       <window_info anchor="bottom" id="Version Control" show_stripe_button="false" />
-      <window_info anchor="bottom" id="Terminal" weight="0.22883599" />
+      <window_info anchor="bottom" id="Terminal" visible="true" weight="0.28174603" />
       <window_info anchor="bottom" id="Event Log" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" />
-      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.24074075" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.24074075" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.3994709" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -343,8 +349,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/../dummy-client/src/Data.ts">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="145">
-          <caret line="31" column="4" selection-start-line="31" selection-start-column="4" selection-end-line="31" selection-end-column="4" />
+        <state relative-caret-position="420">
+          <caret line="36" column="78" lean-forward="true" selection-start-line="36" selection-start-column="78" selection-end-line="36" selection-end-column="78" />
           <folding>
             <element signature="n#status#0" />
             <element signature="n#!!block;n#constructor#0;n#status#0" />
@@ -363,6 +369,13 @@
             <element signature="n#!!block;n#consolidate#0;n#Data#0" />
             <element signature="e#4843#4879#0" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../dummy-client/.gitignore">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="458">
+          <caret line="79" column="7" selection-start-line="79" selection-start-column="7" selection-end-line="79" selection-end-column="7" />
         </state>
       </provider>
     </entry>
