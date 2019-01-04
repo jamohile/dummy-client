@@ -153,11 +153,17 @@ var Data = /** @class */ (function () {
     Data.has = function (id) {
         return Data.REGISTRY.has(id);
     };
+    Data.hasMultiple = function (ids) {
+        return ids.reduce(function (prevValid, id) { return prevValid && Data.has(id); }, true);
+    };
     /**
      * Does not perform loads, just gets the requested item by id.
      */
     Data.get = function (id) {
         return Data.REGISTRY.get(id);
+    };
+    Data.getMultiple = function (ids) {
+        return ids.map(function (id) { return Data.get(id); });
     };
     /**
      * This method allows filtering of all items of a particular type.
@@ -170,25 +176,17 @@ var Data = /** @class */ (function () {
      * This returns the item by id through a promise.
      * recommended use is with the await operator.
      */
-    Data.getOrLoad = function (id) {
+    Data.getOrLoad = function (id, type) {
         return __awaiter(this, void 0, void 0, function () {
+            var loaded;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         if (!Data.has(id)) return [3 /*break*/, 1];
                         return [2 /*return*/, Data.get(id)];
-                    case 1: 
-                    /*TODO: Is this the fastest way?
-                    This goes off the assumption that may as well load everything...we'll need it eventually.
-                     */
-                    // @ts-ignore
-                    return [4 /*yield*/, Data.loadAll()];
+                    case 1: return [4 /*yield*/, Data.loadAll(type)];
                     case 2:
-                        /*TODO: Is this the fastest way?
-                        This goes off the assumption that may as well load everything...we'll need it eventually.
-                         */
-                        // @ts-ignore
-                        _a.sent();
+                        loaded = _a.sent();
                         if (Data.has(id)) {
                             return [2 /*return*/, Data.get(id)];
                         }
@@ -201,20 +199,23 @@ var Data = /** @class */ (function () {
             });
         });
     };
-    //TODO: CAnnot do loads...
-    Data.getOrLoadMultiple = function (ids) {
+    Data.getOrLoadMultiple = function (ids, type) {
         return __awaiter(this, void 0, void 0, function () {
+            var loaded;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!ids.reduce(function (prevValid, id) { return prevValid && Data.has(id); }, true)) return [3 /*break*/, 1];
-                        return [2 /*return*/, ids.map(function (id) { return Data.get(id); })];
-                    case 1: 
-                    // @ts-ignore
-                    return [4 /*yield*/, Data.loadAll()];
+                        if (!this.hasMultiple(ids)) return [3 /*break*/, 1];
+                        return [2 /*return*/, this.getMultiple(ids)];
+                    case 1: return [4 /*yield*/, Data.loadAll(type)];
                     case 2:
-                        // @ts-ignore
-                        _a.sent();
+                        loaded = _a.sent();
+                        if (Data.hasMultiple(ids)) {
+                            return [2 /*return*/, Data.getMultiple(ids)];
+                        }
+                        else {
+                            throw new Error('Tried to load data, but item of requested id still not found.');
+                        }
                         _a.label = 3;
                     case 3: return [2 /*return*/];
                 }
@@ -234,7 +235,7 @@ var Data = /** @class */ (function () {
             }
             else {
                 //Or create a new one and add it to the registry.
-                (new type({ id: id, data: data })).add();
+                (new type(data, id)).add();
             }
         });
     };
@@ -257,6 +258,8 @@ var Data = /** @class */ (function () {
     Data.prototype.subscribe = function (key, handler) {
         if (key) {
             this.subscriptions.set(key, handler);
+            //We notify once.
+            this.notify();
             return true;
         }
         return false;
@@ -273,7 +276,7 @@ var Data = /** @class */ (function () {
      * Returns the current state of a data object, as a concatenation of data (committed) and updated (overwritten)
      */
     Data.prototype.consolidate = function () {
-        return __assign({}, this.data, this.updated);
+        return __assign({ id: this.id }, this.data, this.updated);
     };
     /**
      * Commits the object to its current state silently.
@@ -291,10 +294,10 @@ var Data = /** @class */ (function () {
         if (commit === void 0) { commit = false; }
         if (silent === void 0) { silent = false; }
         if (commit) {
-            this.data = __assign({}, this.data, { data: data });
+            this.data = __assign({}, this.data, data);
         }
         else {
-            this.updated = __assign({}, this.updated, { data: data });
+            this.updated = __assign({}, this.updated, data);
         }
         //It may be possible that the server has requested an id change.
         if (data.id) {
@@ -307,6 +310,11 @@ var Data = /** @class */ (function () {
         }
         return true;
     };
+    Data.prototype.revert = function () {
+        this.updated = {};
+        this.notify();
+        return true;
+    };
     /**
      * Load just this object from server. This is generally discouraged as it may be inefficient.
      */
@@ -317,7 +325,7 @@ var Data = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         _a.trys.push([0, 2, , 3]);
-                        return [4 /*yield*/, axios_1.default.get(this.getURL() + '/' + this.id)];
+                        return [4 /*yield*/, axios_1.default.get(this.type.getURL() + '/' + this.id)];
                     case 1:
                         response = _a.sent();
                         this.update(response.data.data, true);
@@ -370,59 +378,87 @@ var Data = /** @class */ (function () {
      *
      * This function looks exceptionally complex, but this is out of necessity to support referential arrays.
      * **/
-    Data.prototype.flatten = function (pure) {
+    Data.prototype.flatten = function (pure, maxDepth, depth) {
+        if (maxDepth === void 0) { maxDepth = 5; }
+        if (depth === void 0) { depth = 1; }
         return __awaiter(this, void 0, void 0, function () {
-            var data, loads, p, type, done;
-            var _this = this;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            var data, p, _loop_1, this_1, _a, _b, _i;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
+                        if (!!Data.has(this.id)) return [3 /*break*/, 2];
+                        return [4 /*yield*/, this.load()];
+                    case 1:
+                        _c.sent();
+                        _c.label = 2;
+                    case 2:
                         data = this.consolidate();
                         if (!pure) {
                             return [2 /*return*/, data];
                         }
-                        loads = new Map();
-                        p = '';
-                        //Populate loads.
-                        for (p in this.propTypeMap) {
-                            type = this.propTypeMap[p];
-                            //Only do this special flattening on actual referential data.
-                            if (type.isDataType) {
-                                loads.set(p, Data.getOrLoad(data[p]));
-                            }
-                            //If this is a one to many, we use a seperate promise which will get/load multiple items at one time.
-                            if (Array.isArray(type) && type[0].isDataType) {
-                                loads.set(p, Data.getOrLoadMultiple(data[p]));
-                            }
+                        if (depth > maxDepth) {
+                            return [2 /*return*/, data];
                         }
-                        return [4 /*yield*/, Promise.all(__spread(loads.values())).then(function () {
-                                //We ignore the result of the Promise.all, since it will not have the keys from loads, the property names.
-                                var loadValues = __spread(loads.entries());
-                                loadValues.forEach(function (_a) {
-                                    var _b = __read(_a, 2), p = _b[0], valPromise = _b[1];
-                                    return __awaiter(_this, void 0, void 0, function () {
-                                        var value;
-                                        return __generator(this, function (_c) {
-                                            switch (_c.label) {
-                                                case 0: return [4 /*yield*/, valPromise];
-                                                case 1:
-                                                    value = _c.sent();
-                                                    //Add the stripped data to the data return.
-                                                    if (Array.isArray(value)) {
-                                                        data[p] = value.map(function (v) { return v.consolidate(); });
-                                                    }
-                                                    else {
-                                                        data[p] = value.consolidate();
-                                                    }
-                                                    return [2 /*return*/];
+                        p = '';
+                        _loop_1 = function () {
+                            var type_1, item, valuePromise, value, valuePromises, values;
+                            return __generator(this, function (_a) {
+                                switch (_a.label) {
+                                    case 0:
+                                        if (!(data[p] != undefined)) return [3 /*break*/, 4];
+                                        type_1 = this_1.propTypeMap[p];
+                                        if (!type_1.isDataType) return [3 /*break*/, 2];
+                                        item = void 0;
+                                        if (Data.has(data[p])) {
+                                            item = Data.get(data[p]);
+                                        }
+                                        else {
+                                            item = new type_1(undefined, data[p]);
+                                        }
+                                        valuePromise = item.flatten(true, maxDepth, depth + 1);
+                                        return [4 /*yield*/, valuePromise];
+                                    case 1:
+                                        value = _a.sent();
+                                        data[p] = value;
+                                        _a.label = 2;
+                                    case 2:
+                                        if (!(Array.isArray(type_1) && type_1[0].isDataType)) return [3 /*break*/, 4];
+                                        valuePromises = data[p].map(function (id) {
+                                            var item;
+                                            if (Data.has(id)) {
+                                                item = Data.get(id);
                                             }
+                                            else {
+                                                item = new type_1[0](undefined, id);
+                                            }
+                                            return item.flatten(true, maxDepth, depth + 1);
                                         });
-                                    });
-                                });
-                            })];
-                    case 1:
-                        done = _a.sent();
-                        return [2 /*return*/, data];
+                                        return [4 /*yield*/, Promise.all(valuePromises)];
+                                    case 3:
+                                        values = _a.sent();
+                                        data[p] = values;
+                                        _a.label = 4;
+                                    case 4: return [2 /*return*/];
+                                }
+                            });
+                        };
+                        this_1 = this;
+                        _a = [];
+                        for (_b in this.propTypeMap)
+                            _a.push(_b);
+                        _i = 0;
+                        _c.label = 3;
+                    case 3:
+                        if (!(_i < _a.length)) return [3 /*break*/, 6];
+                        p = _a[_i];
+                        return [5 /*yield**/, _loop_1()];
+                    case 4:
+                        _c.sent();
+                        _c.label = 5;
+                    case 5:
+                        _i++;
+                        return [3 /*break*/, 3];
+                    case 6: return [2 /*return*/, data];
                 }
             });
         });

@@ -12,17 +12,6 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
-var __assign = (this && this.__assign) || function () {
-    __assign = Object.assign || function(t) {
-        for (var s, i = 1, n = arguments.length; i < n; i++) {
-            s = arguments[i];
-            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                t[p] = s[p];
-        }
-        return t;
-    };
-    return __assign.apply(this, arguments);
-};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
@@ -60,11 +49,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var Data_1 = require("./Data");
-var API = 'https://9557f302-ed12-4691-91e6-e63d76a75472.mock.pstmn.io';
+var API = 'http://localhost:3000';
 var Animal = /** @class */ (function (_super) {
     __extends(Animal, _super);
-    function Animal(props) {
-        var _this = _super.call(this, __assign({}, props, { type: Animal })) || this;
+    function Animal(data, id) {
+        var _this = _super.call(this, { data: data, id: id, type: Animal }) || this;
         _this.propTypeMap = {
             name: 'string'
         };
@@ -73,44 +62,50 @@ var Animal = /** @class */ (function (_super) {
     Animal.getURL = function () {
         return API + '/animals';
     };
-    Animal.getAll = function () {
-        return Data_1.Data.getAll(Animal);
-    };
-    Animal.loadAll = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, Data_1.Data.loadAll(Animal)];
-                    case 1: return [2 /*return*/, _a.sent()];
-                }
-            });
-        });
-    };
     return Animal;
 }(Data_1.Data));
 var Zoo = /** @class */ (function (_super) {
     __extends(Zoo, _super);
-    function Zoo(props) {
-        var _this = _super.call(this, __assign({}, props, { type: Zoo })) || this;
+    function Zoo(data, id) {
+        var _this = _super.call(this, { data: data, id: id, type: Zoo }) || this;
+        _this.propTypeMap = {
+            lazyAnimal: Animal,
+            mainAnimal: Animal,
+            pens: [Pen]
+        };
+        return _this;
+    }
+    Zoo.getURL = function () {
+        return API + '/zoos';
+    };
+    return Zoo;
+}(Data_1.Data));
+var Pen = /** @class */ (function (_super) {
+    __extends(Pen, _super);
+    function Pen(data, id) {
+        var _this = _super.call(this, { data: data, id: id, type: Pen }) || this;
         _this.propTypeMap = {
             animals: [Animal]
         };
         return _this;
     }
-    return Zoo;
+    Pen.getURL = function () {
+        return API + '/pens';
+    };
+    return Pen;
 }(Data_1.Data));
 function main() {
     return __awaiter(this, void 0, void 0, function () {
-        var zoo, status, _a, _b;
+        var zoo, _a, _b;
         return __generator(this, function (_c) {
             switch (_c.label) {
                 case 0:
-                    zoo = new Zoo({ data: { animals: [0, 1, 2] }, id: 5 });
-                    return [4 /*yield*/, Animal.loadAll()];
+                    zoo = new Zoo(undefined, 0).add();
+                    return [4 /*yield*/, zoo.load()];
                 case 1:
-                    status = _c.sent();
+                    _c.sent();
                     _b = (_a = console).dir;
-                    return [4 /*yield*/, zoo.flatten(true)];
+                    return [4 /*yield*/, zoo.flatten(true, 10)];
                 case 2:
                     _b.apply(_a, [_c.sent()]);
                     return [2 /*return*/];

@@ -1,45 +1,57 @@
 import {Data} from "./Data";
 import axios from 'axios';
 
-const API = 'https://9557f302-ed12-4691-91e6-e63d76a75472.mock.pstmn.io';
+const API = 'http://localhost:3000';
 
 class Animal extends Data<Animal> {
     propTypeMap = {
         name: 'string'
     }
 
-    constructor(props) {
-        super({...props, type: Animal});
+    constructor(data, id) {
+        super({data, id, type: Animal});
     }
 
     static getURL() {
         return API + '/animals';
     }
+}
 
-    static getAll(): Animal[] {
-        return Data.getAll(Animal);
+class Zoo extends Data<Zoo> {
+    propTypeMap = {
+        lazyAnimal: Animal,
+        mainAnimal: Animal,
+        pens: [Pen]
     }
 
-    static async loadAll() {
-        return await Data.loadAll(Animal);
+    constructor(data, id) {
+        super({data, id, type: Zoo});
+    }
+    static getURL(){
+        return API + '/zoos';
     }
 }
 
-class Zoo extends Data<Zoo>{
-    propTypeMap = {
+class Pen extends Data<Pen>{
+    propTypeMap =  {
         animals: [Animal]
     }
-    constructor(props) {
-        super({...props, type: Zoo});
+    constructor(data, id) {
+        super({data, id, type: Pen});
+    }
+    static getURL(){
+        return API + '/pens';
     }
 }
 
 
 async function main() {
-    const zoo = new Zoo({data: {animals: [0,1,2]}, id: 5});
-    const status = await Animal.loadAll();
+    const zoo = new Zoo(undefined,  0).add();
 
-    console.dir(await zoo.flatten(true))
+
+    await zoo.load();
+    console.dir(await zoo.flatten(true, 10))
+
 }
 
 main();

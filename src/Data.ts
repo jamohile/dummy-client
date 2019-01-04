@@ -10,7 +10,7 @@ class status {
     }
 }
 
-export abstract class Data<T>{
+export abstract class Data<T> {
     //This helps us later on, when we flatten. Allows us to know when a property is actually a referential class.
     static isDataType = true;
     //A store of all data object, by ID. This ensures that there is always a link, and that nothing gets GCed away.
@@ -36,7 +36,7 @@ export abstract class Data<T>{
     /** Stores an object of form {prop1: type1, prop2:type2}
      * This allows us to tell which properties are references when flattening.
      * **/
-    abstract propTypeMap: {};
+    abstract propTypeMap: any;
 
     constructor({data = {}, id = undefined, type = undefined} = {}) {
         /** If we ever have to create locally, a negative id ensures no collision. **/
@@ -70,12 +70,6 @@ export abstract class Data<T>{
     }
 
     /**
-     * This is a little hackey, but we intentionally override loadAll in each derived class, so that we can pass in that class's type.
-     * We override so that we don't have to repass it every time.
-     */
-    abstract async loadAll();
-
-    /**
      * This works just like the loadAll above, with one difference. It concatenates 'updated' to the url, assuming the API will use this to only show relevant data.
      */
     //TODO: Pass last update time.
@@ -89,11 +83,11 @@ export abstract class Data<T>{
      * This is only used internally by loadAll and refreshAll.
      */
     private static async fetchAndMerge<T extends typeof Data>(url: string, type: T): Promise<status> {
-        try{
+        try {
             const response = await axios(url)
             Data.merge(response.data.data, type);
             return new status(true, response.status)
-        }catch (e) {
+        } catch (e) {
             throw new Error(e);
             return new status(false, 100);
         }
@@ -107,6 +101,10 @@ export abstract class Data<T>{
         return Data.REGISTRY.has(id);
     }
 
+    static hasMultiple(ids: number[]): boolean {
+        return ids.reduce((prevValid: boolean, id: number) => prevValid && Data.has(id), true);
+    }
+
     /**
      * Does not perform loads, just gets the requested item by id.
      */
@@ -114,24 +112,23 @@ export abstract class Data<T>{
         return Data.REGISTRY.get(id);
     }
 
-    /**
-     * This method allows filtering of all items of a particular type.
-     */
-    protected static getAll<T extends typeof Data>(type: T): Data<T>[]{
-        return [...Data.REGISTRY.values()].filter(v => v.type == type);
+    static getMultiple(ids: number[]): Data<any>[] {
+        return ids.map(id => Data.get(id));
     }
 
     /**
-     * Like we did in loadAll, we override with an implicitly static abstract, passing in the type as a param.
+     * This method allows filtering of all items of a particular type.
      */
-    abstract getAll();
+    protected static getAll<T extends typeof Data>(type: T): Data<T>[] {
+        return [...Data.REGISTRY.values()].filter(v => v.type == type);
+    }
 
     /**
      * Sometimes we want an object and want to abstract away whether or not it needs loading.
      * This returns the item by id through a promise.
      * recommended use is with the await operator.
      */
-    static async getOrLoad(id: number): Promise<Data<any>> {
+    static async getOrLoad<T extends typeof Data>(id: number, type: T): Promise<Data<T>> {
         if (Data.has(id)) {
             return Data.get(id);
         } else {
@@ -139,7 +136,7 @@ export abstract class Data<T>{
             This goes off the assumption that may as well load everything...we'll need it eventually.
              */
             // @ts-ignore
-            await Data.loadAll();
+            const loaded = await Data.loadAll(type);
             if (Data.has(id)) {
                 return Data.get(id);
             } else {
@@ -148,13 +145,17 @@ export abstract class Data<T>{
         }
     }
 
-    //TODO: CAnnot do loads...
-    static async getOrLoadMultiple(ids: number[]): Promise<Data<any>[]>{
-        if(ids.reduce((prevValid:boolean, id: number) => prevValid && Data.has(id), true)){
-            return ids.map(id => Data.get(id));
-        }else{
+    static async getOrLoadMultiple<T extends typeof Data>(ids: number[], type: T): Promise<Data<T>[]> {
+        if (this.hasMultiple(ids)) {
+            return this.getMultiple(ids);
+        } else {
             // @ts-ignore
-            await Data.loadAll();
+            const loaded = await Data.loadAll(type);
+            if (Data.hasMultiple(ids)) {
+                return Data.getMultiple(ids);
+            } else {
+                throw new Error('Tried to load data, but item of requested id still not found.')
+            }
         }
     }
 
@@ -170,7 +171,7 @@ export abstract class Data<T>{
                 Data.get(id).update(data, true);
             } else {
                 //Or create a new one and add it to the registry.
-                (new type({id, data})).add()
+                (new type(data, id)).add()
             }
         })
     }
@@ -192,7 +193,8 @@ export abstract class Data<T>{
         Data.REGISTRY.set(this.id, this);
         return this;
     }
-    remove(): boolean{
+
+    remove(): boolean {
         Data.REGISTRY.delete(this.id);
         return true;
     }
@@ -202,7 +204,9 @@ export abstract class Data<T>{
      */
     subscribe(key: any, handler: (d: Data<T>) => void): boolean {
         if (key) {
-            this.subscriptions.set(key, handler)
+            this.subscriptions.set(key, handler);
+            //We notify once.
+            this.notify();
             return true;
         }
         return false;
@@ -220,7 +224,7 @@ export abstract class Data<T>{
      * Returns the current state of a data object, as a concatenation of data (committed) and updated (overwritten)
      */
     consolidate(): object {
-        return {...this.data, ...this.updated}
+        return {id: this.id, ...this.data, ...this.updated}
     }
 
     /**
@@ -238,13 +242,12 @@ export abstract class Data<T>{
      */
     update(data: any, commit: boolean = false, silent: boolean = false): boolean {
         if (commit) {
-            this.data = {...this.data, data}
+            this.data = {...this.data, ...data}
         } else {
-            this.updated = {...this.updated, data}
+            this.updated = {...this.updated, ...data}
         }
-
         //It may be possible that the server has requested an id change.
-        if(data.id){
+        if (data.id) {
             this.remove()
             this.id = data.id;
             this.add();
@@ -256,15 +259,21 @@ export abstract class Data<T>{
         return true;
     }
 
+    revert(): boolean {
+        this.updated = {};
+        this.notify();
+        return true;
+    }
+
     /**
      * Load just this object from server. This is generally discouraged as it may be inefficient.
      */
     async load(): Promise<status> {
-        try{
-            const response = await axios.get(this.getURL() + '/' + this.id);
+        try {
+            const response = await axios.get(this.type.getURL() + '/' + this.id);
             this.update(response.data.data, true);
             return new status(true, response.status);
-        }catch(err: AxiosError){
+        } catch (err: AxiosError) {
             throw new Error(err);
             return new status(false, err.code)
         }
@@ -275,14 +284,14 @@ export abstract class Data<T>{
      * Save just this object to the server.
      */
     async save(): Promise<status> {
-        try{
+        try {
             const response = await axios.put(this.getURL() + '/' + this.id, this.consolidate());
             //Great, now that we've got the response we should load to make sure nothing else has changed.
             //TODO: Make this more flexible by allowing alternative methods of local reload.
             this.load();
             return new status(true, response.status);
 
-        }catch(err: AxiosError){
+        } catch (err: AxiosError) {
             throw new Error(err);
             return new status(false, err.code)
         }
@@ -300,47 +309,55 @@ export abstract class Data<T>{
      *
      * This function looks exceptionally complex, but this is out of necessity to support referential arrays.
      * **/
-    async flatten(pure: boolean): Promise<object> {
+    async flatten(pure: boolean, maxDepth = 5, depth = 1): Promise<object> {
+        if(!Data.has(this.id)){
+            await this.load()
+        }
+
         const data = this.consolidate();
+
         if (!pure) {
             return data;
         }
 
+        if (depth > maxDepth) {
+            return data;
+        }
         //Now we must go through this data, and find anything that is a reference. Then we need to fill these in.
 
-        //We make a map of promises so we can async resolve all of them at the same time.
-        //Notice that sometimes, a single string maps to a promise of multiple data objects--this is needed in one to many relations.
-        let loads: Map<string, Promise<Data<T>>|Promise<Data<T>[]>> = new Map<string, Promise<Data<T>>|Promise<Data<T>[]>>()
         let p: string = '';
         //Populate loads.
         for (p in this.propTypeMap) {
-            const type = this.propTypeMap[p];
-            //Only do this special flattening on actual referential data.
-            if (type.isDataType) {
-                loads.set(p, Data.getOrLoad(data[p]));
-            }
-            //If this is a one to many, we use a seperate promise which will get/load multiple items at one time.
-            if(Array.isArray(type) && type[0].isDataType){
-                loads.set(p, Data.getOrLoadMultiple(data[p]));
+            if (data[p] != undefined) {
+                const type = this.propTypeMap[p];
+                //Only do this special flattening on actual referential data.
+                if (type.isDataType) {
+                    let item;
+                    if(Data.has(data[p])){
+                        item = Data.get(data[p])
+                    }else{
+                        item = new type(undefined, data[p])
+                    }
+                    const valuePromise = item.flatten(true, maxDepth, depth + 1);
+                    const value = await valuePromise;
+                    data[p] = value;
+                }
+                //If this is a one to many, we use a seperate promise which will get/load multiple items at one time.
+                if (Array.isArray(type) && type[0].isDataType) {
+                    const valuePromises = data[p].map( id => {
+                        let item;
+                        if(Data.has(id)){
+                            item = Data.get(id)
+                        }else{
+                            item = new type[0](undefined, id)
+                        }
+                        return item.flatten(true, maxDepth, depth + 1)
+                    });
+                    const  values =  await Promise.all(valuePromises);
+                    data[p] = values;
+                }
             }
         }
-
-        //We factor this into its own line with an await so that the return statement will wait.
-        //@ts-ignore
-        const done = await Promise.all([...loads.values()]).then(() => {
-            //We ignore the result of the Promise.all, since it will not have the keys from loads, the property names.
-            const loadValues = [...loads.entries()];
-            loadValues.forEach(async ([p, valPromise]) => {
-                //We don't mind awaiting each one here, since the Promise.all guarantees that they have already completed.
-                const value = await valPromise;
-                //Add the stripped data to the data return.
-                if(Array.isArray(value)){
-                    data[p] = value.map(v => v.consolidate());
-                }else{
-                    data[p] = value.consolidate();
-                }
-            })
-        })
         return data;
     }
 
