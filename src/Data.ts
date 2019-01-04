@@ -22,7 +22,7 @@ export default abstract class Data<T> {
     static prefix;
 
     //The identifier.
-    id: number;
+    id: string;
     //A store of all data in object form. Allows flexible server-updates.
     data: object = {};
     //Similar to data, instead, stores only updated properties.
@@ -55,7 +55,7 @@ export default abstract class Data<T> {
     constructor({data = {}, id = undefined, type = undefined} = {}) {
         /** If we ever have to create locally, a negative id ensures no collision. **/
         if (id == undefined) {
-            this.id = -(Data.REGISTRY.size + 1);
+            this.id = (-(Data.REGISTRY.size + 1)).toString() + '.' + type.prefix;
         } else {
             this.id = id;
         }
@@ -78,7 +78,7 @@ export default abstract class Data<T> {
     /**
      * This loads all items of this type from the server.
      */
-    static async loadAll<T extends typeof Data>(type: T): Promise<status> {
+    static async loadAll<T extends Data<T>>(type: T): Promise<status> {
         // @ts-ignore
         return await Data.fetchAndMerge(type.getURL(), type);
     }
@@ -111,22 +111,35 @@ export default abstract class Data<T> {
     /**
      * Whether or not an item of the given id exists. Should always be used before get.
      */
-    static has(id: number, prefix): boolean {
+    static has(id: string, prefix): boolean {
         return Data.REGISTRY.has(prefix + '.' + id);
     }
 
-    static hasMultiple(ids: number[], prefix): boolean {
-        return ids.reduce((prevValid: boolean, id: number) => prevValid && Data.has(id, prefix), true);
+    static hasMultiple(ids: string[], prefix): boolean {
+        return ids.reduce((prevValid: boolean, id: string) => prevValid && Data.has(id, prefix), true);
     }
 
     /**
      * Does not perform loads, just gets the requested item by id.
      */
-    static get(id: number, prefix): Data<any> {
+    static get(id: string, prefix): Data<any> {
         return Data.REGISTRY.get(prefix + '.' + id);
     }
 
-    static getMultiple(ids: number[], prefix): Data<any>[] {
+    /**
+     *
+     */
+
+    static getOrMake<T extends typeof Data> (id:string, type: T){
+        if (Data.has(id, type.prefix)){
+            return Data.get(id, type.prefix);
+        }else{
+            // @ts-ignore
+            return new type(undefined, id);
+        }
+    }
+
+    static getMultiple(ids: string[], prefix): Data<any>[] {
         return ids.map(id => Data.get(id, prefix));
     }
 
@@ -142,7 +155,7 @@ export default abstract class Data<T> {
      * This returns the item by id through a promise.
      * recommended use is with the await operator.
      */
-    static async getOrLoad<T extends typeof Data>(id: number, type: T): Promise<Data<T>> {
+    static async getOrLoad<T extends typeof Data>(id: string, type: T): Promise<Data<T>> {
         if (Data.has(id, type.prefix)) {
             return Data.get(id, type.prefix);
         } else {
@@ -159,7 +172,7 @@ export default abstract class Data<T> {
         }
     }
 
-    static async getOrLoadMultiple<T extends typeof Data>(ids: number[], type: T): Promise<Data<T>[]> {
+    static async getOrLoadMultiple<T extends typeof Data>(ids: string[], type: T): Promise<Data<T>[]> {
         if (this.hasMultiple(ids, type.prefix)) {
             return this.getMultiple(ids, type.prefix);
         } else {
@@ -244,9 +257,9 @@ export default abstract class Data<T> {
     /**
      * Commits the object to its current state silently.
      */
-    commit(): boolean {
+    commit(): Data<T> {
         this.data = this.consolidate();
-        return true;
+        return this;
     }
 
     /**
@@ -254,7 +267,7 @@ export default abstract class Data<T> {
      * If commit is true, will also commit the data.
      * Unless silent is true, will notify.
      */
-    update(data: any, commit: boolean = false, silent: boolean = false): boolean {
+    update(data: any, commit: boolean = false, silent: boolean = false): Data<T> {
         if (commit) {
             this.data = {...this.data, ...data}
         } else {
@@ -270,13 +283,13 @@ export default abstract class Data<T> {
         if (!silent) {
             this.notify()
         }
-        return true;
+        return this;
     }
 
-    revert(): boolean {
+    revert(): Data<T> {
         this.updated = {};
         this.notify();
-        return true;
+        return this;
     }
 
     /**
@@ -301,9 +314,9 @@ export default abstract class Data<T> {
         try {
             let response;
             if(this.id < 0){
-                await axios.post(this.getURL() + '/', this.consolidate());
+                response = await axios.post(this.type.getURL() + '/', this.consolidate());
             }else{
-                await axios.put(this.getURL() + '/' + this.id, this.consolidate());
+                response = await axios.put(this.type.getURL() + '/' + this.id, this.consolidate());
             }
             //Great, now that we've got the response we should load to make sure nothing else has changed.
             //TODO: Make this more flexible by allowing alternative methods of local reload.
@@ -319,6 +332,18 @@ export default abstract class Data<T> {
     //TODO: Write this.
     async delete(): Promise<status> {
         return new status(true, 200);
+    }
+
+    get(prop:string){
+        const property = this.consolidate()[prop];
+        const propType = this.propTypeMap[prop]
+        if(Array.isArray(propType) && propType[0].isDataType){
+            return property.map(id => Data.getOrMake(id, propType[0]));
+        }else if(propType.isDataType){
+            return Data.getOrMake(property, propType);
+        }else{
+            return property;
+        }
     }
 
     /**

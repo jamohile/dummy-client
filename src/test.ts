@@ -4,42 +4,10 @@ import axios from 'axios';
 const API = 'http://localhost:3000';
 
 
-
-class Animal extends Data<Animal> {
-    propTypeMap = {
-        name: 'string'
-    }
-    static prefix = 'animals'
-
-    constructor(data, id) {
-        super({data, id, type: Animal});
-    }
-
-    static getURL() {
-        return API + '/animals';
-    }
-}
-class Pen extends Data<Pen> {
-    propTypeMap = {
-        animals: [Animal]
-    }
-    static prefix = 'pens';
-
-    constructor(data, id) {
-        super({data, id, type: Pen});
-    }
-
-    static getURL() {
-        return API + '/pens';
-    }
-}
-
-
 class Zoo extends Data<Zoo> {
     propTypeMap = {
-        lazyAnimal: Animal,
-        mainAnimal: Animal,
-        pens: [Pen]
+        name: 'string',
+        animals: [Animal]
     }
     static prefix = 'zoos';
 
@@ -52,14 +20,37 @@ class Zoo extends Data<Zoo> {
     }
 }
 
-async function main() {
-    // const zoo = new Zoo(undefined, 0).add();
-    // await zoo.load();
-    // console.dir(await zoo.flatten(true, 3));
-    // console.dir(zoo.type.REGISTRY)
-    await Animal.loadAll(Animal);
 
-    console.dir(Animal.REGISTRY)
+class Animal extends Data<Animal> {
+    propTypeMap = {
+        name: 'string',
+        colour: 'string',
+        dangerous: 'boolean'
+    }
+    static prefix = 'animals'
+
+    constructor(data, id) {
+        super({data, id, type: Animal});
+    }
+
+    static getURL() {
+        return API + '/animals';
+    }
+}
+
+async function main() {
+    await Zoo.loadAll(Zoo);
+    const zoo = Zoo.get(0, Zoo.prefix);
+
+    console.dir(zoo.consolidate())
+    console.dir('updating local')
+    zoo.update({name: 'Metro'});
+    console.dir(await zoo.flatten(true));
+    const status = await zoo.save();
+    console.dir(status);
+
+    console.dir(zoo.get('name'))
+
 }
 
 main();

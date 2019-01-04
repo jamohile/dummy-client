@@ -85,7 +85,7 @@ var Data = /** @class */ (function () {
         this.subscriptions = new Map();
         /** If we ever have to create locally, a negative id ensures no collision. **/
         if (id == undefined) {
-            this.id = -(Data.REGISTRY.size + 1);
+            this.id = (-(Data.REGISTRY.size + 1)).toString() + '.' + type.prefix;
         }
         else {
             this.id = id;
@@ -167,6 +167,18 @@ var Data = /** @class */ (function () {
      */
     Data.get = function (id, prefix) {
         return Data.REGISTRY.get(prefix + '.' + id);
+    };
+    /**
+     *
+     */
+    Data.getOrMake = function (id, type) {
+        if (Data.has(id, type.prefix)) {
+            return Data.get(id, type.prefix);
+        }
+        else {
+            // @ts-ignore
+            return new type(undefined, id);
+        }
     };
     Data.getMultiple = function (ids, prefix) {
         return ids.map(function (id) { return Data.get(id, prefix); });
@@ -289,7 +301,7 @@ var Data = /** @class */ (function () {
      */
     Data.prototype.commit = function () {
         this.data = this.consolidate();
-        return true;
+        return this;
     };
     /**
      * Adds data nonpermanantly.
@@ -314,12 +326,12 @@ var Data = /** @class */ (function () {
         if (!silent) {
             this.notify();
         }
-        return true;
+        return this;
     };
     Data.prototype.revert = function () {
         this.updated = {};
         this.notify();
-        return true;
+        return this;
     };
     /**
      * Load just this object from server. This is generally discouraged as it may be inefficient.
@@ -356,13 +368,13 @@ var Data = /** @class */ (function () {
                         _a.trys.push([0, 5, , 6]);
                         response = void 0;
                         if (!(this.id < 0)) return [3 /*break*/, 2];
-                        return [4 /*yield*/, axios_1.default.post(this.getURL() + '/', this.consolidate())];
+                        return [4 /*yield*/, axios_1.default.post(this.type.getURL() + '/', this.consolidate())];
                     case 1:
-                        _a.sent();
+                        response = _a.sent();
                         return [3 /*break*/, 4];
-                    case 2: return [4 /*yield*/, axios_1.default.put(this.getURL() + '/' + this.id, this.consolidate())];
+                    case 2: return [4 /*yield*/, axios_1.default.put(this.type.getURL() + '/' + this.id, this.consolidate())];
                     case 3:
-                        _a.sent();
+                        response = _a.sent();
                         _a.label = 4;
                     case 4:
                         //Great, now that we've got the response we should load to make sure nothing else has changed.
@@ -384,6 +396,19 @@ var Data = /** @class */ (function () {
                 return [2 /*return*/, new status(true, 200)];
             });
         });
+    };
+    Data.prototype.get = function (prop) {
+        var property = this.consolidate()[prop];
+        var propType = this.propTypeMap[prop];
+        if (Array.isArray(propType) && propType[0].isDataType) {
+            return property.map(function (id) { return Data.getOrMake(id, propType[0]); });
+        }
+        else if (propType.isDataType) {
+            return Data.getOrMake(property, propType);
+        }
+        else {
+            return property;
+        }
     };
     /**
      * Returns data, stripped from the class object.

@@ -2,19 +2,10 @@
   "zoos": [
     {
       "id": 0,
-      "pens": [
-        1
-      ],
-      "mainAnimal": 2,
-      "lazyAnimal": 3
-    }
-  ],
-  "pens": [
-    {
-      "id": 1,
+      "name": "Metro",
       "animals": [
         2,
-        5,
+        3,
         4
       ]
     }
@@ -22,19 +13,27 @@
   "animals": [
     {
       "id": 2,
-      "name": "Zebra"
+      "name": "Zebra",
+      "color": "white",
+      "dangerous": false
     },
     {
       "id": 3,
-      "name": "Bear"
+      "name": "Bear",
+      "color": "brown",
+      "dangerous": true
     },
     {
       "id": 4,
-      "name": "Dog"
+      "name": "Dog",
+      "color": "golden",
+      "dangerous": false
     },
     {
       "id": 5,
-      "name": "Lion"
+      "name": "Lion",
+      "color": "orange",
+      "dangerous": true
     }
   ]
 }
