@@ -10,15 +10,16 @@ class status {
     }
 }
 
-export abstract class Data<T> {
+export default abstract class Data<T> {
     //This helps us later on, when we flatten. Allows us to know when a property is actually a referential class.
     static isDataType = true;
     //A store of all data object, by ID. This ensures that there is always a link, and that nothing gets GCed away.
-    static REGISTRY: Map<number, Data<any>> = new Map<number, Data<any>>();
+    static REGISTRY: Map<string, Data<any>> = new Map<string, Data<any>>();
     /**Abstract*/
         //This must be overridden in each class, it allows us to keep track of when the last refresh occurred for that class.
     static timeOfLastLoad: number;
-
+        //A unique prefix assigned to the class. This way, items can share an id as long as they are of different types.
+    static prefix;
 
     //The identifier.
     id: number;
@@ -37,6 +38,12 @@ export abstract class Data<T> {
      * This allows us to tell which properties are references when flattening.
      * **/
     abstract propTypeMap: any;
+
+
+    private static config = {
+        API: undefined
+    }
+
 
     constructor({data = {}, id = undefined, type = undefined} = {}) {
         /** If we ever have to create locally, a negative id ensures no collision. **/
@@ -97,23 +104,23 @@ export abstract class Data<T> {
     /**
      * Whether or not an item of the given id exists. Should always be used before get.
      */
-    static has(id: number): boolean {
-        return Data.REGISTRY.has(id);
+    static has(id: number, prefix): boolean {
+        return Data.REGISTRY.has(prefix + '.' + id);
     }
 
-    static hasMultiple(ids: number[]): boolean {
-        return ids.reduce((prevValid: boolean, id: number) => prevValid && Data.has(id), true);
+    static hasMultiple(ids: number[], prefix): boolean {
+        return ids.reduce((prevValid: boolean, id: number) => prevValid && Data.has(id, prefix), true);
     }
 
     /**
      * Does not perform loads, just gets the requested item by id.
      */
-    static get(id: number): Data<any> {
-        return Data.REGISTRY.get(id);
+    static get(id: number, prefix): Data<any> {
+        return Data.REGISTRY.get(prefix + '.' + id);
     }
 
-    static getMultiple(ids: number[]): Data<any>[] {
-        return ids.map(id => Data.get(id));
+    static getMultiple(ids: number[], prefix): Data<any>[] {
+        return ids.map(id => Data.get(id, prefix));
     }
 
     /**
@@ -129,16 +136,16 @@ export abstract class Data<T> {
      * recommended use is with the await operator.
      */
     static async getOrLoad<T extends typeof Data>(id: number, type: T): Promise<Data<T>> {
-        if (Data.has(id)) {
-            return Data.get(id);
+        if (Data.has(id, type.prefix)) {
+            return Data.get(id, type.prefix);
         } else {
             /*TODO: Is this the fastest way?
             This goes off the assumption that may as well load everything...we'll need it eventually.
              */
             // @ts-ignore
             const loaded = await Data.loadAll(type);
-            if (Data.has(id)) {
-                return Data.get(id);
+            if (Data.has(id, type.prefix)) {
+                return Data.get(id, type.prefix);
             } else {
                 throw new Error('Tried to load data, but item of requested id still not found.')
             }
@@ -146,13 +153,13 @@ export abstract class Data<T> {
     }
 
     static async getOrLoadMultiple<T extends typeof Data>(ids: number[], type: T): Promise<Data<T>[]> {
-        if (this.hasMultiple(ids)) {
-            return this.getMultiple(ids);
+        if (this.hasMultiple(ids, type.prefix)) {
+            return this.getMultiple(ids, type.prefix);
         } else {
             // @ts-ignore
             const loaded = await Data.loadAll(type);
-            if (Data.hasMultiple(ids)) {
-                return Data.getMultiple(ids);
+            if (Data.hasMultiple(ids, type.prefix)) {
+                return Data.getMultiple(ids, type.prefix);
             } else {
                 throw new Error('Tried to load data, but item of requested id still not found.')
             }
@@ -166,9 +173,9 @@ export abstract class Data<T> {
             const data = {...obj};
             delete data.id;
             //Now we must create class objects, or update existing ones, for the type passed in.
-            if (Data.has(id)) {
+            if (Data.has(id, type.prefix)) {
                 //Update existing object.
-                Data.get(id).update(data, true);
+                Data.get(id, type.prefix).update(data, true);
             } else {
                 //Or create a new one and add it to the registry.
                 (new type(data, id)).add()
@@ -190,12 +197,12 @@ export abstract class Data<T> {
      * If data object is created using built in methods such as load, loadAll, etc, it is automatically added.
      */
     add(): Data<T> {
-        Data.REGISTRY.set(this.id, this);
+        Data.REGISTRY.set(this.type.prefix + '.' + this.id, this);
         return this;
     }
 
     remove(): boolean {
-        Data.REGISTRY.delete(this.id);
+        Data.REGISTRY.delete(this.type.prefix + '.' + this.id);
         return true;
     }
 
@@ -310,7 +317,7 @@ export abstract class Data<T> {
      * This function looks exceptionally complex, but this is out of necessity to support referential arrays.
      * **/
     async flatten(pure: boolean, maxDepth = 5, depth = 1): Promise<object> {
-        if(!Data.has(this.id)){
+        if (!Data.has(this.id, this.type.prefix)) {
             await this.load()
         }
 
@@ -333,10 +340,11 @@ export abstract class Data<T> {
                 //Only do this special flattening on actual referential data.
                 if (type.isDataType) {
                     let item;
-                    if(Data.has(data[p])){
-                        item = Data.get(data[p])
-                    }else{
-                        item = new type(undefined, data[p])
+                    const id = data[p];
+                    if (Data.has(id, type.prefix)) {
+                        item = Data.get(id, type.prefix)
+                    } else {
+                        item = new type(undefined, id)
                     }
                     const valuePromise = item.flatten(true, maxDepth, depth + 1);
                     const value = await valuePromise;
@@ -344,16 +352,16 @@ export abstract class Data<T> {
                 }
                 //If this is a one to many, we use a seperate promise which will get/load multiple items at one time.
                 if (Array.isArray(type) && type[0].isDataType) {
-                    const valuePromises = data[p].map( id => {
+                    const valuePromises = data[p].map(id => {
                         let item;
-                        if(Data.has(id)){
-                            item = Data.get(id)
-                        }else{
+                        if (Data.has(id, type[0].prefix)) {
+                            item = Data.get(id, type[0].prefix)
+                        } else {
                             item = new type[0](undefined, id)
                         }
                         return item.flatten(true, maxDepth, depth + 1)
                     });
-                    const  values =  await Promise.all(valuePromises);
+                    const values = await Promise.all(valuePromises);
                     data[p] = values;
                 }
             }

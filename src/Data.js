@@ -150,20 +150,20 @@ var Data = /** @class */ (function () {
     /**
      * Whether or not an item of the given id exists. Should always be used before get.
      */
-    Data.has = function (id) {
-        return Data.REGISTRY.has(id);
+    Data.has = function (id, prefix) {
+        return Data.REGISTRY.has(prefix + '.' + id);
     };
-    Data.hasMultiple = function (ids) {
-        return ids.reduce(function (prevValid, id) { return prevValid && Data.has(id); }, true);
+    Data.hasMultiple = function (ids, prefix) {
+        return ids.reduce(function (prevValid, id) { return prevValid && Data.has(id, prefix); }, true);
     };
     /**
      * Does not perform loads, just gets the requested item by id.
      */
-    Data.get = function (id) {
-        return Data.REGISTRY.get(id);
+    Data.get = function (id, prefix) {
+        return Data.REGISTRY.get(prefix + '.' + id);
     };
-    Data.getMultiple = function (ids) {
-        return ids.map(function (id) { return Data.get(id); });
+    Data.getMultiple = function (ids, prefix) {
+        return ids.map(function (id) { return Data.get(id, prefix); });
     };
     /**
      * This method allows filtering of all items of a particular type.
@@ -182,13 +182,13 @@ var Data = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!Data.has(id)) return [3 /*break*/, 1];
-                        return [2 /*return*/, Data.get(id)];
+                        if (!Data.has(id, type.prefix)) return [3 /*break*/, 1];
+                        return [2 /*return*/, Data.get(id, type.prefix)];
                     case 1: return [4 /*yield*/, Data.loadAll(type)];
                     case 2:
                         loaded = _a.sent();
-                        if (Data.has(id)) {
-                            return [2 /*return*/, Data.get(id)];
+                        if (Data.has(id, type.prefix)) {
+                            return [2 /*return*/, Data.get(id, type.prefix)];
                         }
                         else {
                             throw new Error('Tried to load data, but item of requested id still not found.');
@@ -205,13 +205,13 @@ var Data = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!this.hasMultiple(ids)) return [3 /*break*/, 1];
-                        return [2 /*return*/, this.getMultiple(ids)];
+                        if (!this.hasMultiple(ids, type.prefix)) return [3 /*break*/, 1];
+                        return [2 /*return*/, this.getMultiple(ids, type.prefix)];
                     case 1: return [4 /*yield*/, Data.loadAll(type)];
                     case 2:
                         loaded = _a.sent();
-                        if (Data.hasMultiple(ids)) {
-                            return [2 /*return*/, Data.getMultiple(ids)];
+                        if (Data.hasMultiple(ids, type.prefix)) {
+                            return [2 /*return*/, Data.getMultiple(ids, type.prefix)];
                         }
                         else {
                             throw new Error('Tried to load data, but item of requested id still not found.');
@@ -229,9 +229,9 @@ var Data = /** @class */ (function () {
             var data = __assign({}, obj);
             delete data.id;
             //Now we must create class objects, or update existing ones, for the type passed in.
-            if (Data.has(id)) {
+            if (Data.has(id, type.prefix)) {
                 //Update existing object.
-                Data.get(id).update(data, true);
+                Data.get(id, type.prefix).update(data, true);
             }
             else {
                 //Or create a new one and add it to the registry.
@@ -245,11 +245,11 @@ var Data = /** @class */ (function () {
      * If data object is created using built in methods such as load, loadAll, etc, it is automatically added.
      */
     Data.prototype.add = function () {
-        Data.REGISTRY.set(this.id, this);
+        Data.REGISTRY.set(this.type.prefix + '.' + this.id, this);
         return this;
     };
     Data.prototype.remove = function () {
-        Data.REGISTRY.delete(this.id);
+        Data.REGISTRY.delete(this.type.prefix + '.' + this.id);
         return true;
     };
     /**
@@ -386,7 +386,7 @@ var Data = /** @class */ (function () {
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        if (!!Data.has(this.id)) return [3 /*break*/, 2];
+                        if (!!Data.has(this.id, this.type.prefix)) return [3 /*break*/, 2];
                         return [4 /*yield*/, this.load()];
                     case 1:
                         _c.sent();
@@ -401,7 +401,7 @@ var Data = /** @class */ (function () {
                         }
                         p = '';
                         _loop_1 = function () {
-                            var type_1, item, valuePromise, value, valuePromises, values;
+                            var type_1, item, id, valuePromise, value, valuePromises, values;
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
                                     case 0:
@@ -409,11 +409,12 @@ var Data = /** @class */ (function () {
                                         type_1 = this_1.propTypeMap[p];
                                         if (!type_1.isDataType) return [3 /*break*/, 2];
                                         item = void 0;
-                                        if (Data.has(data[p])) {
-                                            item = Data.get(data[p]);
+                                        id = data[p];
+                                        if (Data.has(id, type_1.prefix)) {
+                                            item = Data.get(id, type_1.prefix);
                                         }
                                         else {
-                                            item = new type_1(undefined, data[p]);
+                                            item = new type_1(undefined, id);
                                         }
                                         valuePromise = item.flatten(true, maxDepth, depth + 1);
                                         return [4 /*yield*/, valuePromise];
@@ -425,8 +426,8 @@ var Data = /** @class */ (function () {
                                         if (!(Array.isArray(type_1) && type_1[0].isDataType)) return [3 /*break*/, 4];
                                         valuePromises = data[p].map(function (id) {
                                             var item;
-                                            if (Data.has(id)) {
-                                                item = Data.get(id);
+                                            if (Data.has(id, type_1[0].prefix)) {
+                                                item = Data.get(id, type_1[0].prefix);
                                             }
                                             else {
                                                 item = new type_1[0](undefined, id);
@@ -467,7 +468,10 @@ var Data = /** @class */ (function () {
     Data.isDataType = true;
     //A store of all data object, by ID. This ensures that there is always a link, and that nothing gets GCed away.
     Data.REGISTRY = new Map();
+    Data.config = {
+        API: undefined
+    };
     return Data;
 }());
-exports.Data = Data;
+exports.default = Data;
 //# sourceMappingURL=Data.js.map
