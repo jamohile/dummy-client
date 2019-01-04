@@ -1,3 +1,5 @@
+<img src="./dummy.png" alt="Dummy.png" width="200"/>
+
 # Dummy Client
 
 ## What is Dummy?
@@ -5,7 +7,7 @@ Dummy is a new approach to client-side data management.
 It takes care of CRUD, normalization, updating, version history, and more, so you don't have to.
 
 ## How does it work?
-Dummy's is designed to be <b>simple and flexible </b>. It gives you power and choice when you want it, 
+Dummy's is designed to be <b>simple and flexible</b>. It gives you power and choice when you want it, 
 and doesn't shove it on you when you don't.
 
 ### Getting Started
@@ -72,11 +74,12 @@ We can see that quite a bit of information is duplicated. Dummy (in principle), 
 
 Keep in mind that this is just to illustrate the structure of normalization.
 In reality, whether each of those components (post, comments, users) is sent together
-or via seperate requests is a seperate decisions.
+or via seperate requests is a seperate decision. The above is a server side send, Dummy manages the client to interact with a properly normalized server.
 
 #### Benefits of This Approach 
 <ul>
     <li>Ease of updating: cascading changes through relations is unecessary.</li>
+    <li>Complex nested data can involve complicated queries on the server-side, Dummy eliminates this. </li>
 </ul>
 
 ### Implementation
