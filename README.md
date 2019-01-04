@@ -5,7 +5,7 @@ Dummy is a new approach to client-side data management.
 It takes care of CRUD, normalization, updating, version history, and more, so you don't have to.
 
 ## How does it work?
-Dummy's is designed to be <b>simple and flexible </b>. It gives you power and choice when you want it, 
+Dummy's is designed to be <b>simple and flexible</b>. It gives you power and choice when you want it, 
 and doesn't shove it on you when you don't.
 
 ### Getting Started
