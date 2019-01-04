@@ -81,6 +81,7 @@ or via seperate requests is a seperate decisions.
 
 ### Implementation
  
+#### Creating a Data Type
 It all starts with the ```Data``` class. This provides almost all Dummy operations.
 To create an object, extend the data class. Say we'd like to create a class for different types of animals.
 
@@ -128,5 +129,184 @@ Next, we override the constructor. The constructor must contain the same props a
 
 And finally, we must override getURL. This tells Dummy the fully qualified URL root for objects of this type.
 
+#### Working with data
+We'd like to add a bear using the ```Animal``` class above. We can do it as follows:
+```$xslt
+const data = {name: 'Bear', colour: 'Brown', dangerous: true}
+const bear = new Animal(data).add()
+```
+In this example, we know what data we'd like. We create a new Animal and use .add() to add it to the local store.
+Notice that we don't pass in an <b>id</b>. When creating a new item, we don't want to accidentally overwrite existing items,
+so Dummy automatically assigns an id.
 
+Let's say we want to change this data, we realize bears aren't so dangerous after all!
+```$xslt
+bear.update({dangerous: false})
+```
+It's as simple as that! We can update as many properties as we'd like simultaneously.
 
+Uh oh, maybe bears are actually dangerous. No worries! We can revert our data.
+```$xslt
+bear.revert()
+```
+Data can be reverted until it is committed. At that point, it can no longer have updates removed.
+```
+bear.commit()
+```
+Let's say we have a remote server, chances are we'd like to save our new data to the server.
+```$xslt
+bear.save()
+```
+Saving is asynchronous and returns a promise. To deal with this, we can either use async/await or Promise style callbacks.
+```$xslt
+const result = await bear.save()
+//result = {successful: boolean, status: number}
+
+OR
+
+bear.save()
+    .then(result => {})
+    .catch(err => {})
+```
+
+#### Non-local objects
+In the example above, we knew the data we wanted, and created a new idea.
+What if instead, we have a remote server which can give us data? Using the above example, 
+let's assume we have the ```Animal``` type and a webserver that will reply at http://path/to/api/animals.
+
+Without creating the bear animal, we can call:
+```$xslt
+Animal.loadAll(Animal)
+```
+Dummy will dispatch an API call to the endpoint specifified by ```Animal.getURL()```
+and populate data from there. A response is expected in the following structure:
+```json
+[
+  {
+    "id": 2,
+    "name": "Zebra",
+    "colour": "white",
+    "dangerous": false
+  },
+  {
+    "id": 3,
+    "name": "Bear",
+    "colour": "brown",
+    "dangerous": true
+  },
+  {
+    "id": 4,
+    "name": "Dog",
+    "colour": "gold",
+    "dangerous": false
+  },
+  {
+    "id": 5,
+    "name": "Lion",
+    "colour": "orange",
+    "dangerous": true
+  }
+]
+```
+<b>REMEMBER</b>
+Dummy is built with flexibility in mind. Although this is the default response structure dummy expects, you can modify dummy to accept whatever structure you prefer.
+The only rule is that your response structure should remain consistent across all API resources, 
+but that's just good practice! Before creating any objects, call the following to configure a new structure. Your function should take in the API's data response, data, and return usable data for Dummy. 
+The returned data should either be an object with your properties at its root, or an array of the same.
+```$xslt
+Data.setResponseDataMapping((data) => {
+    return /*Something */
+});
+```
+#### Relations
+Let's say we run a zoo, and this zoo has many animals. We may create a new class, ```Zoo```.
+```$xslt
+class Zoo extends Data<Zoo> {
+    static prefix = 'zoo';
+    
+    propTypeMap = {
+        name: 'string',
+        animals: [Animal]
+    }
+
+    constructor(data, id) {
+        super({data, id, type: Zoo});
+    }
+
+    static getURL() {
+        return API + '/zoo';
+    }
+}
+```
+Notice how similar it is to the ```Animal``` class! Also, notice how we define ```animals```
+in the propTypeMap. ```Animal``` appears in brackets. This tells Dummy that this is a one to many relationship, 
+and to expect an array of ids.
+
+Let's say that somewhere in our application we know that there is a Zoo of id 2, but we don't know its data.
+
+```$xslt
+const zoo = new Zoo(undefined, 2).add();
+await zoo.load();
+```
+
+Just like that, Dummy will contact your server to load the zoo. In response, it may be expecting something like this:
+```$xslt
+{
+    id: 2,
+    name: 'Metro Toronto Zoo',
+    animals: [2,3,4]
+}
+```
+
+Generally speaking, this is discouraged unless you know what you are doing.
+Loading all zoos ahead of time with ```Zoo.load(Zoo)``` is probably more efficient than seperate requests.
+Let's say we want to print out to contents of our zoo. We can call:
+```$xslt
+console.dir( zoo.consolidate() )
+```
+By consolidating the object, we merge its committed properties with its locally updated ones.
+Here, we haven't performed any local updates, and server data is automatically committed. 
+
+However, Dummy gives us another way to get an object's data. Notice that ```consolidate()``` is synchronous, ```flatten()``` is async.
+```$xslt
+flatten(pure: boolean, maxDepth: number)
+```
+
+With no parameters, flatten works just like consolidate, but async.
+
+```
+console.dir( await zoo.flatten() )
+// prints:
+{
+    id: 2,
+    name: 'Metro Toronto Zoo',
+    animals: [2,3,4]
+}
+```
+
+If ```pure``` is true, however, flatten becomes very useful. Notice that above, animals is an array of ids.
+Flatten will replace these ids with data for these objects. If needed, 
+Dummy will even make API calls to get this data.
+
+```
+console.dir( await zoo.flatten() )
+// prints:
+{
+    id: 2,
+    name: 'Metro Toronto Zoo',
+    animals: [
+        {
+            "id": 2,
+            "name": "Zebra",
+            "colour": "white",
+            "dangerous": false
+          },
+          ...
+    ]
+}
+```
+
+This is particularly useful when allowing UI views to simply consume data without worrying about APIs and requests.
+Notice that ```animals``` was a root level (level 1) property. By using the second property of flatten, ```maxDepth```, you 
+can control how many levels down data will be expanded. For example, with a maxDepth of 1, any relational ids in each animal would remain ids, 
+but with a maxDepth of 2 they too would be expanded.

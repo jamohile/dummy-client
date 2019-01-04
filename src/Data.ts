@@ -39,11 +39,18 @@ export default abstract class Data<T> {
      * **/
     abstract propTypeMap: any;
 
-
     private static config = {
-        API: undefined
+        API: undefined,
+        mapResponseToData: (data: any) => data
     }
 
+
+    static setResponseDataMapping(mapper: (data:any) => any):any{
+        this.config.mapResponseToData = mapper;
+    }
+    private static getResponseMapper():(data:any) => any{
+        return Data.config.mapResponseToData;
+    }
 
     constructor({data = {}, id = undefined, type = undefined} = {}) {
         /** If we ever have to create locally, a negative id ensures no collision. **/
@@ -92,7 +99,7 @@ export default abstract class Data<T> {
     private static async fetchAndMerge<T extends typeof Data>(url: string, type: T): Promise<status> {
         try {
             const response = await axios(url)
-            Data.merge(response.data.data, type);
+            Data.merge(Data.getResponseMapper()(response.data), type);
             return new status(true, response.status)
         } catch (e) {
             throw new Error(e);
@@ -126,7 +133,7 @@ export default abstract class Data<T> {
     /**
      * This method allows filtering of all items of a particular type.
      */
-    protected static getAll<T extends typeof Data>(type: T): Data<T>[] {
+    static getAll<T extends typeof Data>(type: T): Data<T>[] {
         return [...Data.REGISTRY.values()].filter(v => v.type == type);
     }
 
@@ -278,7 +285,7 @@ export default abstract class Data<T> {
     async load(): Promise<status> {
         try {
             const response = await axios.get(this.type.getURL() + '/' + this.id);
-            this.update(response.data.data, true);
+            this.update(Data.getResponseMapper()(response.data), true);
             return new status(true, response.status);
         } catch (err: AxiosError) {
             throw new Error(err);
@@ -292,7 +299,12 @@ export default abstract class Data<T> {
      */
     async save(): Promise<status> {
         try {
-            const response = await axios.put(this.getURL() + '/' + this.id, this.consolidate());
+            let response;
+            if(this.id < 0){
+                await axios.post(this.getURL() + '/', this.consolidate());
+            }else{
+                await axios.put(this.getURL() + '/' + this.id, this.consolidate());
+            }
             //Great, now that we've got the response we should load to make sure nothing else has changed.
             //TODO: Make this more flexible by allowing alternative methods of local reload.
             this.load();

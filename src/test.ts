@@ -1,7 +1,39 @@
-import {Data} from "./Data";
+import Data from "./Data";
 import axios from 'axios';
 
 const API = 'http://localhost:3000';
+
+
+
+class Animal extends Data<Animal> {
+    propTypeMap = {
+        name: 'string'
+    }
+    static prefix = 'animals'
+
+    constructor(data, id) {
+        super({data, id, type: Animal});
+    }
+
+    static getURL() {
+        return API + '/animals';
+    }
+}
+class Pen extends Data<Pen> {
+    propTypeMap = {
+        animals: [Animal]
+    }
+    static prefix = 'pens';
+
+    constructor(data, id) {
+        super({data, id, type: Pen});
+    }
+
+    static getURL() {
+        return API + '/pens';
+    }
+}
+
 
 class Zoo extends Data<Zoo> {
     propTypeMap = {
@@ -20,44 +52,14 @@ class Zoo extends Data<Zoo> {
     }
 }
 
-class Pen extends Data<Pen> {
-    propTypeMap = {
-        animals: [Animal]
-    }
-    static prefix = 'pens';
-
-    constructor(data, id) {
-        super({data, id, type: Pen});
-    }
-
-    static getURL() {
-        return API + '/pens';
-    }
-}
-
-
-class Animal extends Data<Animal> {
-    propTypeMap = {
-        name: 'string'
-    }
-    static prefix = 'animals'
-
-    constructor(data, id) {
-        super({data, id, type: Animal});
-    }
-
-    static getURL() {
-        return API + '/animals';
-    }
-}
-
-
 async function main() {
-    const zoo = new Zoo(undefined, 0).add();
-    await zoo.load();
-    console.dir(await zoo.flatten(true, 3));
-    console.dir(zoo.type.REGISTRY)
+    // const zoo = new Zoo(undefined, 0).add();
+    // await zoo.load();
+    // console.dir(await zoo.flatten(true, 3));
+    // console.dir(zoo.type.REGISTRY)
+    await Animal.loadAll(Animal);
 
+    console.dir(Animal.REGISTRY)
 }
 
 main();

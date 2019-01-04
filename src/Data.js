@@ -93,6 +93,12 @@ var Data = /** @class */ (function () {
         this.type = type;
         this.data = __assign({}, data);
     }
+    Data.setResponseDataMapping = function (mapper) {
+        this.config.mapResponseToData = mapper;
+    };
+    Data.getResponseMapper = function () {
+        return Data.config.mapResponseToData;
+    };
     /**
      * This loads all items of this type from the server.
      */
@@ -137,7 +143,7 @@ var Data = /** @class */ (function () {
                         return [4 /*yield*/, axios_1.default(url)];
                     case 1:
                         response = _a.sent();
-                        Data.merge(response.data.data, type);
+                        Data.merge(Data.getResponseMapper()(response.data), type);
                         return [2 /*return*/, new status(true, response.status)];
                     case 2:
                         e_1 = _a.sent();
@@ -328,7 +334,7 @@ var Data = /** @class */ (function () {
                         return [4 /*yield*/, axios_1.default.get(this.type.getURL() + '/' + this.id)];
                     case 1:
                         response = _a.sent();
-                        this.update(response.data.data, true);
+                        this.update(Data.getResponseMapper()(response.data), true);
                         return [2 /*return*/, new status(true, response.status)];
                     case 2:
                         err_1 = _a.sent();
@@ -347,18 +353,26 @@ var Data = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        _a.trys.push([0, 2, , 3]);
-                        return [4 /*yield*/, axios_1.default.put(this.getURL() + '/' + this.id, this.consolidate())];
+                        _a.trys.push([0, 5, , 6]);
+                        response = void 0;
+                        if (!(this.id < 0)) return [3 /*break*/, 2];
+                        return [4 /*yield*/, axios_1.default.post(this.getURL() + '/', this.consolidate())];
                     case 1:
-                        response = _a.sent();
+                        _a.sent();
+                        return [3 /*break*/, 4];
+                    case 2: return [4 /*yield*/, axios_1.default.put(this.getURL() + '/' + this.id, this.consolidate())];
+                    case 3:
+                        _a.sent();
+                        _a.label = 4;
+                    case 4:
                         //Great, now that we've got the response we should load to make sure nothing else has changed.
                         //TODO: Make this more flexible by allowing alternative methods of local reload.
                         this.load();
                         return [2 /*return*/, new status(true, response.status)];
-                    case 2:
+                    case 5:
                         err_2 = _a.sent();
                         throw new Error(err_2);
-                    case 3: return [2 /*return*/];
+                    case 6: return [2 /*return*/];
                 }
             });
         });
@@ -469,7 +483,8 @@ var Data = /** @class */ (function () {
     //A store of all data object, by ID. This ensures that there is always a link, and that nothing gets GCed away.
     Data.REGISTRY = new Map();
     Data.config = {
-        API: undefined
+        API: undefined,
+        mapResponseToData: function (data) { return data; }
     };
     return Data;
 }());

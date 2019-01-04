@@ -50,6 +50,36 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var Data_1 = require("./Data");
 var API = 'http://localhost:3000';
+var Animal = /** @class */ (function (_super) {
+    __extends(Animal, _super);
+    function Animal(data, id) {
+        var _this = _super.call(this, { data: data, id: id, type: Animal }) || this;
+        _this.propTypeMap = {
+            name: 'string'
+        };
+        return _this;
+    }
+    Animal.getURL = function () {
+        return API + '/animals';
+    };
+    Animal.prefix = 'animals';
+    return Animal;
+}(Data_1.default));
+var Pen = /** @class */ (function (_super) {
+    __extends(Pen, _super);
+    function Pen(data, id) {
+        var _this = _super.call(this, { data: data, id: id, type: Pen }) || this;
+        _this.propTypeMap = {
+            animals: [Animal]
+        };
+        return _this;
+    }
+    Pen.getURL = function () {
+        return API + '/pens';
+    };
+    Pen.prefix = 'pens';
+    return Pen;
+}(Data_1.default));
 var Zoo = /** @class */ (function (_super) {
     __extends(Zoo, _super);
     function Zoo(data, id) {
@@ -66,52 +96,24 @@ var Zoo = /** @class */ (function (_super) {
     };
     Zoo.prefix = 'zoos';
     return Zoo;
-}(Data_1.Data));
-var Pen = /** @class */ (function (_super) {
-    __extends(Pen, _super);
-    function Pen(data, id) {
-        var _this = _super.call(this, { data: data, id: id, type: Pen }) || this;
-        _this.propTypeMap = {
-            animals: [Animal]
-        };
-        return _this;
-    }
-    Pen.getURL = function () {
-        return API + '/pens';
-    };
-    Pen.prefix = 'pens';
-    return Pen;
-}(Data_1.Data));
-var Animal = /** @class */ (function (_super) {
-    __extends(Animal, _super);
-    function Animal(data, id) {
-        var _this = _super.call(this, { data: data, id: id, type: Animal }) || this;
-        _this.propTypeMap = {
-            name: 'string'
-        };
-        return _this;
-    }
-    Animal.getURL = function () {
-        return API + '/animals';
-    };
-    Animal.prefix = 'animals';
-    return Animal;
-}(Data_1.Data));
+}(Data_1.default));
 function main() {
     return __awaiter(this, void 0, void 0, function () {
-        var zoo, _a, _b;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
-                case 0:
-                    zoo = new Zoo(undefined, 0).add();
-                    return [4 /*yield*/, zoo.load()];
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: 
+                // const zoo = new Zoo(undefined, 0).add();
+                // await zoo.load();
+                // console.dir(await zoo.flatten(true, 3));
+                // console.dir(zoo.type.REGISTRY)
+                return [4 /*yield*/, Animal.loadAll(Animal)];
                 case 1:
-                    _c.sent();
-                    _b = (_a = console).dir;
-                    return [4 /*yield*/, zoo.flatten(true, 3)];
-                case 2:
-                    _b.apply(_a, [_c.sent()]);
-                    console.dir(zoo.type.REGISTRY);
+                    // const zoo = new Zoo(undefined, 0).add();
+                    // await zoo.load();
+                    // console.dir(await zoo.flatten(true, 3));
+                    // console.dir(zoo.type.REGISTRY)
+                    _a.sent();
+                    console.dir(Animal.REGISTRY);
                     return [2 /*return*/];
             }
         });
