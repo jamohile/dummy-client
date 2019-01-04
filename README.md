@@ -1,3 +1,5 @@
+<img src="./dummy.png" alt="Dummy.png" width="200"/>
+
 # Dummy Client
 
 ## What is Dummy?
