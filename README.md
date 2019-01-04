@@ -72,11 +72,12 @@ We can see that quite a bit of information is duplicated. Dummy (in principle), 
 
 Keep in mind that this is just to illustrate the structure of normalization.
 In reality, whether each of those components (post, comments, users) is sent together
-or via seperate requests is a seperate decisions.
+or via seperate requests is a seperate decision. The above is a server side send, Dummy manages the client to interact with a properly normalized server.
 
 #### Benefits of This Approach 
 <ul>
     <li>Ease of updating: cascading changes through relations is unecessary.</li>
+    <li>Complex nested data can involve complicated queries on the server-side, Dummy eliminates this. </li>
 </ul>
 
 ### Implementation
