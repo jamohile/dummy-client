@@ -85,7 +85,7 @@ var Data = /** @class */ (function () {
         this.subscriptions = new Map();
         /** If we ever have to create locally, a negative id ensures no collision. **/
         if (id == undefined) {
-            this.id = (-(Data.REGISTRY.size + 1)).toString() + '.' + type.prefix;
+            this.id = -(Data.REGISTRY.size + 1);
         }
         else {
             this.id = id;
@@ -93,11 +93,29 @@ var Data = /** @class */ (function () {
         this.type = type;
         this.data = __assign({}, data);
     }
+    /**
+     * Configuration
+     */
     Data.setResponseDataMapping = function (mapper) {
         this.config.mapResponseToData = mapper;
     };
     Data.getResponseMapper = function () {
         return Data.config.mapResponseToData;
+    };
+    Data.setAPI = function (api) {
+        this.config.API = api;
+    };
+    /**Static Data Methods**/
+    /**
+     * Returned URL should not contain a trailing slash.
+     * @example
+     * /path/to/type
+     *
+     * We use an abstract method here, due to typescript limitation, but instantiate as a static abstract.
+     * @override
+     */
+    Data.getURL = function () {
+        return this.config.API + "/" + this.prefix;
     };
     /**
      * This loads all items of this type from the server.
@@ -240,6 +258,13 @@ var Data = /** @class */ (function () {
             });
         });
     };
+    Data.loadMultiple = function (objects) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                return [2 /*return*/, Promise.all(objects.map(function (obj) { return obj.load(); }))];
+            });
+        });
+    };
     /** Takes an array of data objects. instantiates local class objects for them. This is meant primarily to take data from the server and merge it to the local store.**/
     Data.merge = function (objects, type) {
         objects.forEach(function (obj) {
@@ -379,6 +404,8 @@ var Data = /** @class */ (function () {
                     case 4:
                         //Great, now that we've got the response we should load to make sure nothing else has changed.
                         //TODO: Make this more flexible by allowing alternative methods of local reload.
+                        //We optimistically commit our data as if it's in line with the server, but also trigger a reload.
+                        this.commit();
                         this.load();
                         return [2 /*return*/, new status(true, response.status)];
                     case 5:
@@ -409,6 +436,33 @@ var Data = /** @class */ (function () {
         else {
             return property;
         }
+    };
+    Data.prototype.loadProp = function (prop) {
+        return __awaiter(this, void 0, void 0, function () {
+            var property, propType, objects, object;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        property = this.consolidate()[prop];
+                        propType = this.propTypeMap[prop];
+                        if (!(Array.isArray(propType) && propType[0].isDataType)) return [3 /*break*/, 2];
+                        objects = property.map(function (id) { return Data.getOrMake(id, propType[0]); });
+                        ;
+                        return [4 /*yield*/, Data.loadMultiple(objects)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/, objects];
+                    case 2:
+                        if (!propType.isDataType) return [3 /*break*/, 4];
+                        object = Data.getOrMake(property, propType);
+                        return [4 /*yield*/, object.load()];
+                    case 3:
+                        _a.sent();
+                        return [2 /*return*/, object];
+                    case 4: return [2 /*return*/, property];
+                }
+            });
+        });
     };
     /**
      * Returns data, stripped from the class object.

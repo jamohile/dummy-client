@@ -78,3 +78,6 @@ typings/
 #Build files
 .js
 .js.map
+*.js
+*.map
+src/test.js

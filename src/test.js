@@ -50,6 +50,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var Data_1 = require("./Data");
 var API = 'http://localhost:3000';
+Data_1.default.setAPI(API);
 var Zoo = /** @class */ (function (_super) {
     __extends(Zoo, _super);
     function Zoo(data, id) {
@@ -77,33 +78,39 @@ var Animal = /** @class */ (function (_super) {
         };
         return _this;
     }
-    Animal.getURL = function () {
-        return API + '/animals';
-    };
     Animal.prefix = 'animals';
     return Animal;
 }(Data_1.default));
 function main() {
     return __awaiter(this, void 0, void 0, function () {
-        var zoo, _a, _b, status;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
-                case 0: return [4 /*yield*/, Zoo.loadAll(Zoo)];
+        var zoo, status;
+        var _this = this;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: 
+                //Get and load a zoo.
+                return [4 /*yield*/, Zoo.loadAll(Zoo)];
                 case 1:
-                    _c.sent();
+                    //Get and load a zoo.
+                    _a.sent();
                     zoo = Zoo.get(0, Zoo.prefix);
-                    console.dir(zoo.consolidate());
-                    console.dir('updating local');
+                    //Update and save a new name for the zoo.
                     zoo.update({ name: 'Metro' });
-                    _b = (_a = console).dir;
-                    return [4 /*yield*/, zoo.flatten(true)];
-                case 2:
-                    _b.apply(_a, [_c.sent()]);
                     return [4 /*yield*/, zoo.save()];
+                case 2:
+                    status = _a.sent();
+                    return [4 /*yield*/, zoo.loadProp('animals')];
                 case 3:
-                    status = _c.sent();
-                    console.dir(status);
-                    console.dir(zoo.get('name'));
+                    (_a.sent())[0].update({ name: 'Zebra' }).save()
+                        .then(function () { return __awaiter(_this, void 0, void 0, function () { var _a, _b; return __generator(this, function (_c) {
+                        switch (_c.label) {
+                            case 0:
+                                _b = (_a = console).dir;
+                                return [4 /*yield*/, zoo.flatten(true)];
+                            case 1: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
+                        }
+                    }); }); });
+                    console.dir(Animal.getURL());
                     return [2 /*return*/];
             }
         });

@@ -1,6 +1,7 @@
 <img src="./dummy.png" alt="Dummy.png" width="200"/>
 
-# Dummy Client
+# Dummy | Client
+
 
 ## What is Dummy?
 Dummy is a new approach to client-side data management. 
@@ -130,7 +131,11 @@ For this example, no properties are referential.
 
 Next, we override the constructor. The constructor must contain the same props and super call, in the exact same order!
 
-And finally, we must override getURL. This tells Dummy the fully qualified URL root for objects of this type.
+**Optional:**
+And finally, we override `static getURL()`.This tells Dummy the fully qualified URL root for objects of this type.
+*IF* you do not provide an override, Dummy will assume that the url is that of the root api plus the prefix.
+
+If you do not override, make sure you have called `Data.setAPI(api)` before creating any objects.
 
 #### Working with data
 We'd like to add a bear using the ```Animal``` class above. We can do it as follows:
@@ -313,3 +318,39 @@ This is particularly useful when allowing UI views to simply consume data withou
 Notice that ```animals``` was a root level (level 1) property. By using the second property of flatten, ```maxDepth```, you 
 can control how many levels down data will be expanded. For example, with a maxDepth of 1, any relational ids in each animal would remain ids, 
 but with a maxDepth of 2 they too would be expanded.
+
+Let's say we want to get a list of Animal objects from our zoo. That's as simple as calling:
+
+```$xslt
+const animals = zoo.get('animals');
+```
+
+Now, using get will not load the objects.
+But you can easily use forEach and Promise.all() to load each object!
+In fact, we like you. <b>So we did that for you. </b>
+```$xslt
+const responses = await Data.loadAll(zoo.get('animals'))
+```
+responses will be a promise of status objects.
+
+Alternatively, you can just do
+```$xslt
+await Data.loadAll(zoo.get('animals'))
+
+or 
+
+Data.loadAll(zoo.get('animals'))
+    .then(statuses => {})
+```
+
+<b>But wait! There's more! Cliche enough?</b>
+
+Remember that Dummy is about flexibility. Instead of ``zoo.get(prop)``
+we can use the asynchronous `zoo.load(prop)`. If the property is an array of objects,
+it will load each object before returning an array of the objects  <i>NOT the statuses</i>.
+
+If the prop is a single object, it will load and return that object. If the prop is a primitive, it will simply return that primitive.
+```
+const animals = await zoo.loadProp('animals')
+//animals is of type Animal[]
+```

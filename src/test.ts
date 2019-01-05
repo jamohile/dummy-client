@@ -3,6 +3,7 @@ import axios from 'axios';
 
 const API = 'http://localhost:3000';
 
+Data.setAPI(API)
 
 class Zoo extends Data<Zoo> {
     propTypeMap = {
@@ -32,24 +33,23 @@ class Animal extends Data<Animal> {
     constructor(data, id) {
         super({data, id, type: Animal});
     }
-
-    static getURL() {
-        return API + '/animals';
-    }
 }
 
 async function main() {
+
+    //Get and load a zoo.
     await Zoo.loadAll(Zoo);
     const zoo = Zoo.get(0, Zoo.prefix);
 
-    console.dir(zoo.consolidate())
-    console.dir('updating local')
+    //Update and save a new name for the zoo.
     zoo.update({name: 'Metro'});
-    console.dir(await zoo.flatten(true));
     const status = await zoo.save();
-    console.dir(status);
 
-    console.dir(zoo.get('name'))
+
+    (await zoo.loadProp('animals'))[0].update({name: 'Zebra'}).save()
+        .then(async () => console.dir(await zoo.flatten(true)))
+
+    console.dir(Animal.getURL())
 
 }
 
