@@ -111,10 +111,6 @@ class Animal extends Data<Animal> {
         dangerous: 'boolean'
     }
 
-    constructor(data, id) {
-        super({data, id, type: Animal});
-    }
-
     static getURL() {
         return API + '/animals';
     }
@@ -128,8 +124,6 @@ means that two items of different types can have the same id.
 
 Secondly, we set a propTypeMap. This defines the various data properties this object contains. 
 For this example, no properties are referential.
-
-Next, we override the constructor. The constructor must contain the same props and super call, in the exact same order!
 
 **Optional:**
 And finally, we override `static getURL()`.This tells Dummy the fully qualified URL root for objects of this type.
@@ -184,7 +178,7 @@ let's assume we have the ```Animal``` type and a webserver that will reply at ht
 
 Without creating the bear animal, we can call:
 ```$xslt
-Animal.loadAll(Animal)
+Animal.loadAll()
 ```
 Dummy will dispatch an API call to the endpoint specifified by ```Animal.getURL()```
 and populate data from there. A response is expected in the following structure:
@@ -235,14 +229,6 @@ class Zoo extends Data<Zoo> {
     propTypeMap = {
         name: 'string',
         animals: [Animal]
-    }
-
-    constructor(data, id) {
-        super({data, id, type: Zoo});
-    }
-
-    static getURL() {
-        return API + '/zoo';
     }
 }
 ```

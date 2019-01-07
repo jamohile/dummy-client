@@ -75,14 +75,22 @@ var status = /** @class */ (function () {
     return status;
 }());
 var Data = /** @class */ (function () {
-    function Data(_a) {
-        var _b = _a === void 0 ? {} : _a, _c = _b.data, data = _c === void 0 ? {} : _c, _d = _b.id, id = _d === void 0 ? undefined : _d, _e = _b.type, type = _e === void 0 ? undefined : _e;
+    function Data(data, id) {
+        if (data === void 0) { data = {}; }
+        if (id === void 0) { id = undefined; }
         //A store of all data in object form. Allows flexible server-updates.
         this.data = {};
         //Similar to data, instead, stores only updated properties.
         this.updated = {};
         //This object can notify other entities of changes through lambda functions.
         this.subscriptions = new Map();
+        /**
+         * The indices this particular object is a part of.
+         * Stores as an object: {indexName: value, ...}
+         * Value stores the value this was indexed on.
+         * Only stores for indices this is a part of.
+         **/
+        this.indices = {};
         /** If we ever have to create locally, a negative id ensures no collision. **/
         if (id == undefined) {
             this.id = -(Data.REGISTRY.size + 1);
@@ -90,22 +98,143 @@ var Data = /** @class */ (function () {
         else {
             this.id = id;
         }
-        this.type = type;
+        // @ts-ignore
+        //Believe it or not this works. Since JS classes are really functions, this gets the function creating this instance...aka the class.
+        this.type = this.constructor;
         this.data = __assign({}, data);
     }
+    /** Configuration **/
+    //<editor-fold name = "Configuration">
     /**
-     * Configuration
+     * Sets a new data mapping function to be used for all server requests.
+     * For example, if your server responds:
+     * {
+     *     meta-data...other props which you want to use.
+     *     data: {
+     *         id: ~~
+     *         ...relevant data for object.
+     *     }
+     * }
+     *
+     * the mapper will recieve the whole object, and should map:
+     * (data) => data.data;
      */
     Data.setResponseDataMapping = function (mapper) {
         this.config.mapResponseToData = mapper;
     };
+    /**
+     * Used internally to getProp the currently set response mapper from configuration.
+     */
     Data.getResponseMapper = function () {
         return Data.config.mapResponseToData;
     };
+    /**
+     * Used to set the default API that will be prepended to all requests.
+     */
     Data.setAPI = function (api) {
         this.config.API = api;
     };
+    //</editor-fold>
+    /** Indexing **/
+    /**
+     * Whether or not an index exists for the particular type.
+     */
+    Data.hasTypeIndex = function () {
+        return this.INDICES.has(this);
+    };
+    Data.getTypeIndex = function () {
+        return this.INDICES.get(this);
+    };
+    /**
+     * Init a new root index for the type.
+     */
+    Data.createTypeIndex = function () {
+        if (!this.hasTypeIndex()) {
+            this.INDICES.set(this, new Map());
+            return true;
+        }
+        else {
+            return false;
+        }
+    };
+    //Deal with individual index within a type.
+    Data.hasIndex = function (indexName) {
+        return this.hasTypeIndex() && this.getTypeIndex().has(indexName);
+    };
+    Data.getIndex = function (indexName) {
+        return this.getTypeIndex().get(indexName);
+    };
+    Data.createIndex = function (index, indexor) {
+        if (this.hasTypeIndex() && !this.hasIndex(index)) {
+            this.getTypeIndex().set(index, { indexor: indexor, index: new Map() });
+            return true;
+        }
+        else {
+            return false;
+        }
+    };
+    Data.createSimpleIndex = function (index, property) {
+        this.createIndex(index, function (d) {
+            return d.raw(property);
+        });
+    };
+    /**
+     * Run an object against the indices named by its type.
+     */
+    Data.indexObject = function (obj) {
+        if (this.hasTypeIndex()) {
+            var typeIndices = this.getTypeIndex();
+            __spread(typeIndices.entries()).forEach(function (_a) {
+                var _b = __read(_a, 2), name = _b[0], _c = _b[1], indexor = _c.indexor, index = _c.index;
+                var value = indexor(obj);
+                if (value != undefined) { //First, let's clear this object from any indices where it already is, for this name.
+                    //Note that we don't use value here because we use what the object was PREVIOUSLY indexed on.
+                    if (obj.indices[name] != undefined) {
+                        delete index.get(obj.indices[name])[obj.id];
+                        //Let's clear this index if needed.
+                        if (Object.keys(index.get(obj.indices[name])).length == 0) {
+                            index.delete(obj.indices[name]);
+                        }
+                    }
+                    //If this is the first time we've had this value we need to add a new index on that value.
+                    if (!index.has(value)) {
+                        index.set(value, {});
+                    }
+                    //Now, let's add this object to its index.
+                    index.get(value)[obj.id] = true;
+                    obj.indices[name] = value;
+                }
+            });
+            return true;
+        }
+        else {
+            return false;
+        }
+    };
+    Data.prototype.index = function () {
+        this.type.indexObject(this);
+    };
+    Data.searchIndex = function (indexName, value) {
+        var index = this.getIndex(indexName).index.get(value);
+        if (index != undefined) {
+            return Object.keys(index).map(Number);
+        }
+        else {
+            return [];
+        }
+    };
+    Data.searchIndexAndGet = function (indexName, value) {
+        return this.getMultiple(this.searchIndex(indexName, value));
+    };
+    Data.searchIndexAndGetOrLoad = function (indexName, value) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                return [2 /*return*/, this.getOrLoadMultiple(this.searchIndex(indexName, value))];
+            });
+        });
+    };
     /**Static Data Methods**/
+    //<editor-fold name = "Static Data Methods">
     /**
      * Returned URL should not contain a trailing slash.
      * @example
@@ -120,11 +249,11 @@ var Data = /** @class */ (function () {
     /**
      * This loads all items of this type from the server.
      */
-    Data.loadAll = function (type) {
+    Data.loadAll = function () {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, Data.fetchAndMerge(type.getURL(), type)];
+                    case 0: return [4 /*yield*/, this.fetchAndMerge(this.getURL())];
                     case 1: 
                     // @ts-ignore
                     return [2 /*return*/, _a.sent()];
@@ -136,11 +265,11 @@ var Data = /** @class */ (function () {
      * This works just like the loadAll above, with one difference. It concatenates 'updated' to the url, assuming the API will use this to only show relevant data.
      */
     //TODO: Pass last update time.
-    Data.refreshAll = function (type) {
+    Data.refreshAll = function () {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, Data.fetchAndMerge(type.getURL() + "/updated", type)];
+                    case 0: return [4 /*yield*/, Data.fetchAndMerge(type.getURL() + "/updated")];
                     case 1: 
                     // @ts-ignore
                     return [2 /*return*/, _a.sent()];
@@ -151,7 +280,7 @@ var Data = /** @class */ (function () {
     /**
      * This is only used internally by loadAll and refreshAll.
      */
-    Data.fetchAndMerge = function (url, type) {
+    Data.fetchAndMerge = function (url) {
         return __awaiter(this, void 0, void 0, function () {
             var response, e_1;
             return __generator(this, function (_a) {
@@ -161,7 +290,7 @@ var Data = /** @class */ (function () {
                         return [4 /*yield*/, axios_1.default(url)];
                     case 1:
                         response = _a.sent();
-                        Data.merge(Data.getResponseMapper()(response.data), type);
+                        this.merge(Data.getResponseMapper()(response.data));
                         return [2 /*return*/, new status(true, response.status)];
                     case 2:
                         e_1 = _a.sent();
@@ -172,59 +301,69 @@ var Data = /** @class */ (function () {
         });
     };
     /**
-     * Whether or not an item of the given id exists. Should always be used before get.
+     * Whether or not an item of the given id exists. Should always be used before getProp.
      */
     Data.has = function (id, prefix) {
+        if (prefix === void 0) { prefix = this.prefix; }
         return Data.REGISTRY.has(prefix + '.' + id);
     };
     Data.hasMultiple = function (ids, prefix) {
-        return ids.reduce(function (prevValid, id) { return prevValid && Data.has(id, prefix); }, true);
+        var _this = this;
+        if (prefix === void 0) { prefix = this.prefix; }
+        return ids.reduce(function (prevValid, id) { return prevValid && _this.has(id); }, true);
     };
     /**
      * Does not perform loads, just gets the requested item by id.
      */
     Data.get = function (id, prefix) {
+        if (prefix === void 0) { prefix = this.prefix; }
         return Data.REGISTRY.get(prefix + '.' + id);
     };
     /**
-     *
+     * Either gets the item from the registry, or makes a new one and adds it to the registry.
+     * Does not do any loading.
      */
-    Data.getOrMake = function (id, type) {
-        if (Data.has(id, type.prefix)) {
-            return Data.get(id, type.prefix);
+    Data.getOrMake = function (id) {
+        if (this.has(id)) {
+            return this.get(id);
         }
         else {
             // @ts-ignore
-            return new type(undefined, id);
+            return new this(undefined, id).add();
         }
     };
-    Data.getMultiple = function (ids, prefix) {
-        return ids.map(function (id) { return Data.get(id, prefix); });
+    /**
+     *Returns an array of multiple items from registry.
+     */
+    Data.getMultiple = function (ids) {
+        var _this = this;
+        return ids.map(function (id) { return _this.get(id); });
     };
     /**
      * This method allows filtering of all items of a particular type.
      */
-    Data.getAll = function (type) {
-        return __spread(Data.REGISTRY.values()).filter(function (v) { return v.type == type; });
+    Data.getAll = function () {
+        var _this = this;
+        return __spread(Data.REGISTRY.values()).filter(function (v) { return v.type == _this; });
     };
     /**
      * Sometimes we want an object and want to abstract away whether or not it needs loading.
      * This returns the item by id through a promise.
      * recommended use is with the await operator.
      */
-    Data.getOrLoad = function (id, type) {
+    Data.getOrLoad = function (id) {
         return __awaiter(this, void 0, void 0, function () {
             var loaded;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!Data.has(id, type.prefix)) return [3 /*break*/, 1];
-                        return [2 /*return*/, Data.get(id, type.prefix)];
-                    case 1: return [4 /*yield*/, Data.loadAll(type)];
+                        if (!this.has(id)) return [3 /*break*/, 1];
+                        return [2 /*return*/, this.get(id)];
+                    case 1: return [4 /*yield*/, this.loadAll()];
                     case 2:
                         loaded = _a.sent();
-                        if (Data.has(id, type.prefix)) {
-                            return [2 /*return*/, Data.get(id, type.prefix)];
+                        if (this.has(id)) {
+                            return [2 /*return*/, this.get(id)];
                         }
                         else {
                             throw new Error('Tried to load data, but item of requested id still not found.');
@@ -235,19 +374,22 @@ var Data = /** @class */ (function () {
             });
         });
     };
-    Data.getOrLoadMultiple = function (ids, type) {
+    /**
+     * Same thing as getProp or load but does it simultaneously for multiple items.
+     */
+    Data.getOrLoadMultiple = function (ids) {
         return __awaiter(this, void 0, void 0, function () {
             var loaded;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!this.hasMultiple(ids, type.prefix)) return [3 /*break*/, 1];
-                        return [2 /*return*/, this.getMultiple(ids, type.prefix)];
-                    case 1: return [4 /*yield*/, Data.loadAll(type)];
+                        if (!this.hasMultiple(ids)) return [3 /*break*/, 1];
+                        return [2 /*return*/, this.getMultiple(ids)];
+                    case 1: return [4 /*yield*/, this.loadAll()];
                     case 2:
                         loaded = _a.sent();
-                        if (Data.hasMultiple(ids, type.prefix)) {
-                            return [2 /*return*/, Data.getMultiple(ids, type.prefix)];
+                        if (this.hasMultiple(ids)) {
+                            return [2 /*return*/, this.getMultiple(ids)];
                         }
                         else {
                             throw new Error('Tried to load data, but item of requested id still not found.');
@@ -258,6 +400,11 @@ var Data = /** @class */ (function () {
             });
         });
     };
+    /**
+     * Sometimes we have an array of objects, and specifically want to wait for all of those to load.
+     * Instead of using Promise.all (which is bound to be rewritten as boilerplate many times...)
+     * This takes in an array of objects, and returns an array of statuses (through promise)
+     */
     Data.loadMultiple = function (objects) {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
@@ -265,24 +412,32 @@ var Data = /** @class */ (function () {
             });
         });
     };
-    /** Takes an array of data objects. instantiates local class objects for them. This is meant primarily to take data from the server and merge it to the local store.**/
-    Data.merge = function (objects, type) {
+    /** Takes an array of data objects. JSON, not Dummy.
+     * instantiates local class objects for them.
+     * This is meant primarily to take raw data from the server and merge it to the local store.
+     * TODO: Extend this to allow caching and offline save.
+     * **/
+    Data.merge = function (objects) {
+        var _this = this;
         objects.forEach(function (obj) {
             var id = obj.id;
             var data = __assign({}, obj);
             delete data.id;
             //Now we must create class objects, or update existing ones, for the type passed in.
-            if (Data.has(id, type.prefix)) {
+            if (Data.has(id, _this.prefix)) {
                 //Update existing object.
-                Data.get(id, type.prefix).update(data, true);
+                Data.get(id, _this.prefix).update(data, true);
             }
             else {
                 //Or create a new one and add it to the registry.
-                (new type(data, id)).add();
+                // @ts-ignore
+                (new _this(data, id)).add();
             }
         });
     };
+    //</editor-fold>
     /**Instance Data Methods**/
+    //<editor-fold name = "Instance Data Methods">
     /**
      * When a data object is instantiated it is not automatically registered. This registers it.
      * If data object is created using built in methods such as load, loadAll, etc, it is automatically added.
@@ -348,11 +503,15 @@ var Data = /** @class */ (function () {
             this.id = data.id;
             this.add();
         }
+        this.index();
         if (!silent) {
             this.notify();
         }
         return this;
     };
+    /**
+     * Disregard anything in the updated store, getProp rid of it.
+     */
     Data.prototype.revert = function () {
         this.updated = {};
         this.notify();
@@ -424,19 +583,25 @@ var Data = /** @class */ (function () {
             });
         });
     };
-    Data.prototype.get = function (prop) {
+    //TODO: Comment these!!!!
+    Data.prototype.raw = function (prop) {
+        return this.consolidate()[prop];
+    };
+    //Basically this gets a property, does a registry lookup if needed.
+    Data.prototype.getProp = function (prop) {
         var property = this.consolidate()[prop];
         var propType = this.propTypeMap[prop];
         if (Array.isArray(propType) && propType[0].isDataType) {
-            return property.map(function (id) { return Data.getOrMake(id, propType[0]); });
+            return property.map(function (id) { return propType[0].getOrMake(id); });
         }
         else if (propType.isDataType) {
-            return Data.getOrMake(property, propType);
+            return propType.getOrMake(property);
         }
         else {
             return property;
         }
     };
+    //This does what getProp does, actually loads the object for data if needed.
     Data.prototype.loadProp = function (prop) {
         return __awaiter(this, void 0, void 0, function () {
             var property, propType, objects, object;
@@ -446,15 +611,14 @@ var Data = /** @class */ (function () {
                         property = this.consolidate()[prop];
                         propType = this.propTypeMap[prop];
                         if (!(Array.isArray(propType) && propType[0].isDataType)) return [3 /*break*/, 2];
-                        objects = property.map(function (id) { return Data.getOrMake(id, propType[0]); });
-                        ;
-                        return [4 /*yield*/, Data.loadMultiple(objects)];
+                        objects = property.map(function (id) { return propType[0].getOrMake(id); });
+                        return [4 /*yield*/, propType[0].loadMultiple(objects)];
                     case 1:
                         _a.sent();
                         return [2 /*return*/, objects];
                     case 2:
                         if (!propType.isDataType) return [3 /*break*/, 4];
-                        object = Data.getOrMake(property, propType);
+                        object = propType.getOrMake(property);
                         return [4 /*yield*/, object.load()];
                     case 3:
                         _a.sent();
@@ -475,7 +639,7 @@ var Data = /** @class */ (function () {
         if (maxDepth === void 0) { maxDepth = 5; }
         if (depth === void 0) { depth = 1; }
         return __awaiter(this, void 0, void 0, function () {
-            var data, p, _loop_1, this_1, _a, _b, _i;
+            var data, p, propTypeMap, propType, _a, _b, _i, item, id, valuePromise, value, valuePromises, values;
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
@@ -493,66 +657,53 @@ var Data = /** @class */ (function () {
                             return [2 /*return*/, data];
                         }
                         p = '';
-                        _loop_1 = function () {
-                            var type_1, item, id, valuePromise, value, valuePromises, values;
-                            return __generator(this, function (_a) {
-                                switch (_a.label) {
-                                    case 0:
-                                        if (!(data[p] != undefined)) return [3 /*break*/, 4];
-                                        type_1 = this_1.propTypeMap[p];
-                                        if (!type_1.isDataType) return [3 /*break*/, 2];
-                                        item = void 0;
-                                        id = data[p];
-                                        if (Data.has(id, type_1.prefix)) {
-                                            item = Data.get(id, type_1.prefix);
-                                        }
-                                        else {
-                                            item = new type_1(undefined, id);
-                                        }
-                                        valuePromise = item.flatten(true, maxDepth, depth + 1);
-                                        return [4 /*yield*/, valuePromise];
-                                    case 1:
-                                        value = _a.sent();
-                                        data[p] = value;
-                                        _a.label = 2;
-                                    case 2:
-                                        if (!(Array.isArray(type_1) && type_1[0].isDataType)) return [3 /*break*/, 4];
-                                        valuePromises = data[p].map(function (id) {
-                                            var item;
-                                            if (Data.has(id, type_1[0].prefix)) {
-                                                item = Data.get(id, type_1[0].prefix);
-                                            }
-                                            else {
-                                                item = new type_1[0](undefined, id);
-                                            }
-                                            return item.flatten(true, maxDepth, depth + 1);
-                                        });
-                                        return [4 /*yield*/, Promise.all(valuePromises)];
-                                    case 3:
-                                        values = _a.sent();
-                                        data[p] = values;
-                                        _a.label = 4;
-                                    case 4: return [2 /*return*/];
-                                }
-                            });
-                        };
-                        this_1 = this;
+                        propTypeMap = this.propTypeMap;
                         _a = [];
-                        for (_b in this.propTypeMap)
+                        for (_b in propTypeMap)
                             _a.push(_b);
                         _i = 0;
                         _c.label = 3;
                     case 3:
-                        if (!(_i < _a.length)) return [3 /*break*/, 6];
+                        if (!(_i < _a.length)) return [3 /*break*/, 8];
                         p = _a[_i];
-                        return [5 /*yield**/, _loop_1()];
+                        if (!(data[p] != undefined)) return [3 /*break*/, 7];
+                        propType = propTypeMap[p];
+                        if (!propType.isDataType) return [3 /*break*/, 5];
+                        item = void 0;
+                        id = data[p];
+                        if (Data.has(id, propType.prefix)) {
+                            item = Data.get(id, propType.prefix);
+                        }
+                        else {
+                            item = new propType(undefined, id);
+                        }
+                        valuePromise = item.flatten(true, maxDepth, depth + 1);
+                        return [4 /*yield*/, valuePromise];
                     case 4:
-                        _c.sent();
+                        value = _c.sent();
+                        data[p] = value;
                         _c.label = 5;
                     case 5:
+                        if (!(Array.isArray(propType) && propType[0].isDataType)) return [3 /*break*/, 7];
+                        valuePromises = data[p].map(function (id) {
+                            var item;
+                            if (Data.has(id, propType[0].prefix)) {
+                                item = Data.get(id, propType[0].prefix);
+                            }
+                            else {
+                                item = new propType[0](undefined, id);
+                            }
+                            return item.flatten(true, maxDepth, depth + 1);
+                        });
+                        return [4 /*yield*/, Promise.all(valuePromises)];
+                    case 6:
+                        values = _c.sent();
+                        data[p] = values;
+                        _c.label = 7;
+                    case 7:
                         _i++;
                         return [3 /*break*/, 3];
-                    case 6: return [2 /*return*/, data];
+                    case 8: return [2 /*return*/, data];
                 }
             });
         });
@@ -561,6 +712,17 @@ var Data = /** @class */ (function () {
     Data.isDataType = true;
     //A store of all data object, by ID. This ensures that there is always a link, and that nothing gets GCed away.
     Data.REGISTRY = new Map();
+    /**
+     * Index related
+     * We maintain two copies so that we can delete items if necessary.
+     */
+    /**
+     * The master index that holds all indices.
+     * Each type is given its own subindex.
+     * The index relates a value, of any, to an object {}.
+     * This object relates {id: true, id: true}
+     */
+    Data.INDICES = new Map();
     Data.config = {
         API: undefined,
         mapResponseToData: function (data) { return data; }

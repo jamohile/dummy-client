@@ -12,10 +12,6 @@ class Zoo extends Data<Zoo> {
     }
     static prefix = 'zoos';
 
-    constructor(data, id) {
-        super({data, id, type: Zoo});
-    }
-
     static getURL() {
         return API + '/zoos';
     }
@@ -31,26 +27,39 @@ class Animal extends Data<Animal> {
     static prefix = 'animals'
 
     constructor(data, id) {
-        super({data, id, type: Animal});
+        super(data, id);
+        this.index();
     }
 }
+
+Animal.createTypeIndex();
+Animal.createIndex('dangerous', (a: Animal) => {
+    return a.getProp('dangerous')
+})
+
 
 async function main() {
 
     //Get and load a zoo.
-    await Zoo.loadAll(Zoo);
-    const zoo = Zoo.get(0, Zoo.prefix);
+    await Zoo.loadAll();
+    const zoo = Zoo.get(0);
 
-    //Update and save a new name for the zoo.
-    zoo.update({name: 'Metro'});
-    const status = await zoo.save();
+    // //Update and save a new name for the zoo.
+    // zoo.update({name: 'Metro'});
+    // const status = await zoo.save();
+    //
+    //
+    // (await zoo.loadProp('animals'))[0].update({name: 'Zebra'}).save()
+    //     .then(async () => console.dir(await zoo.flatten(true)))
+    //
+    // console.dir(Animal.getURL())
 
+    //console.dir(await zoo.flatten(true));
+    //console.dir(await zoo.loadProp('animals'))
+    //Animal.getProp(3, Animal.prefix).update({dangerous: false})
 
-    (await zoo.loadProp('animals'))[0].update({name: 'Zebra'}).save()
-        .then(async () => console.dir(await zoo.flatten(true)))
-
-    console.dir(Animal.getURL())
-
+    await Animal.loadAll()
+    console.dir(await Animal.searchIndexAndGetOrLoad('dangerous', false))
 }
 
 main();

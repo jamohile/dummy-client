@@ -53,8 +53,8 @@ var API = 'http://localhost:3000';
 Data_1.default.setAPI(API);
 var Zoo = /** @class */ (function (_super) {
     __extends(Zoo, _super);
-    function Zoo(data, id) {
-        var _this = _super.call(this, { data: data, id: id, type: Zoo }) || this;
+    function Zoo() {
+        var _this = _super !== null && _super.apply(this, arguments) || this;
         _this.propTypeMap = {
             name: 'string',
             animals: [Animal]
@@ -70,47 +70,65 @@ var Zoo = /** @class */ (function (_super) {
 var Animal = /** @class */ (function (_super) {
     __extends(Animal, _super);
     function Animal(data, id) {
-        var _this = _super.call(this, { data: data, id: id, type: Animal }) || this;
+        var _this = _super.call(this, data, id) || this;
         _this.propTypeMap = {
             name: 'string',
             colour: 'string',
             dangerous: 'boolean'
         };
+        _this.index();
         return _this;
     }
     Animal.prefix = 'animals';
     return Animal;
 }(Data_1.default));
+Animal.createTypeIndex();
+Animal.createIndex('dangerous', function (a) {
+    return a.getProp('dangerous');
+});
 function main() {
     return __awaiter(this, void 0, void 0, function () {
-        var zoo, status;
-        var _this = this;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var zoo, _a, _b;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
                 case 0: 
                 //Get and load a zoo.
-                return [4 /*yield*/, Zoo.loadAll(Zoo)];
+                return [4 /*yield*/, Zoo.loadAll()];
                 case 1:
                     //Get and load a zoo.
-                    _a.sent();
-                    zoo = Zoo.get(0, Zoo.prefix);
-                    //Update and save a new name for the zoo.
-                    zoo.update({ name: 'Metro' });
-                    return [4 /*yield*/, zoo.save()];
+                    _c.sent();
+                    zoo = Zoo.get(0);
+                    // //Update and save a new name for the zoo.
+                    // zoo.update({name: 'Metro'});
+                    // const status = await zoo.save();
+                    //
+                    //
+                    // (await zoo.loadProp('animals'))[0].update({name: 'Zebra'}).save()
+                    //     .then(async () => console.dir(await zoo.flatten(true)))
+                    //
+                    // console.dir(Animal.getURL())
+                    //console.dir(await zoo.flatten(true));
+                    //console.dir(await zoo.loadProp('animals'))
+                    //Animal.getProp(3, Animal.prefix).update({dangerous: false})
+                    return [4 /*yield*/, Animal.loadAll()];
                 case 2:
-                    status = _a.sent();
-                    return [4 /*yield*/, zoo.loadProp('animals')];
+                    // //Update and save a new name for the zoo.
+                    // zoo.update({name: 'Metro'});
+                    // const status = await zoo.save();
+                    //
+                    //
+                    // (await zoo.loadProp('animals'))[0].update({name: 'Zebra'}).save()
+                    //     .then(async () => console.dir(await zoo.flatten(true)))
+                    //
+                    // console.dir(Animal.getURL())
+                    //console.dir(await zoo.flatten(true));
+                    //console.dir(await zoo.loadProp('animals'))
+                    //Animal.getProp(3, Animal.prefix).update({dangerous: false})
+                    _c.sent();
+                    _b = (_a = console).dir;
+                    return [4 /*yield*/, Animal.searchIndexAndGetOrLoad('dangerous', false)];
                 case 3:
-                    (_a.sent())[0].update({ name: 'Zebra' }).save()
-                        .then(function () { return __awaiter(_this, void 0, void 0, function () { var _a, _b; return __generator(this, function (_c) {
-                        switch (_c.label) {
-                            case 0:
-                                _b = (_a = console).dir;
-                                return [4 /*yield*/, zoo.flatten(true)];
-                            case 1: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
-                        }
-                    }); }); });
-                    console.dir(Animal.getURL());
+                    _b.apply(_a, [_c.sent()]);
                     return [2 /*return*/];
             }
         });
